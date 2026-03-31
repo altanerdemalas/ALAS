@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Krallık Fethi</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2e3250;
+      --accent: #f5c518;
+      --player-col: #3b82f6;
+      --enemy-col: #ef4444;
+      --green-hl: #22c55e;
+      --red-hl: #ef4444;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --header-h: 52px;
+      --footer-h: 116px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    /* ─── HEADER ─── */
+    #header {
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    #turn-info {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    #turn-info .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    #gold-display {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    #turn-counter {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ─── MAIN ─── */
+    #game-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 6px;
+      gap: 6px;
+    }
+
+    #status-bar {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      height: 18px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    /* ─── GRID ─── */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      width: min(calc(100vw - 12px), calc(100dvh - var(--header-h) - var(--footer-h) - 48px));
+      aspect-ratio: 1 / 1;
+    }
+
+    .cell {
+      position: relative;
+      border-radius: 5px;
+      border: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.12s, box-shadow 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cell:active { opacity: 0.75; }
+
+    /* terrain backgrounds */
+    .t-plains      { background: #1e3a1e; }
+    .t-forest      { background: #0f2a12; }
+    .t-mountain    { background: #2a2a2a; cursor: not-allowed; }
+    .t-mine        { background: #2e2008; }
+    .t-base_player { background: #0a1f40; }
+    .t-base_ai     { background: #3a0a0a; }
+
+    /* owner rings */
+    .owner-player { border-color: var(--player-col) !important; }
+    .owner-ai     { border-color: var(--enemy-col)  !important; }
+
+    /* highlight states */
+    .hl-selected { border-color: var(--accent) !important; box-shadow: 0 0 6px var(--accent); }
+    .hl-move     { border-color: var(--green-hl) !important; box-shadow: 0 0 5px var(--green-hl); }
+    .hl-attack   { border-color: var(--red-hl)   !important; box-shadow: 0 0 5px var(--red-hl); }
+
+    /* terrain emoji */
+    .terrain-icon {
+      position: absolute;
+      top: 2px; left: 2px;
+      font-size: clamp(7px, 1.8vw, 12px);
+      line-height: 1;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    /* unit emoji */
+    .unit-icon {
+      font-size: clamp(14px, 4vw, 24px);
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .unit-moved .unit-icon { opacity: 0.45; }
+
+    /* HP bar */
+    .hp-bar {
+      position: absolute;
+      bottom: 1px; left: 2px; right: 2px;
+      height: 3px;
+      background: #333;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    .hp-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.2s;
+    }
+
+    .hp-high { background: #22c55e; }
+    .hp-mid  { background: #f59e0b; }
+    .hp-low  { background: #ef4444; }
+
+    /* AI thinking */
+    #ai-thinking {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    /* ─── FOOTER ─── */
+    #bottom-panel {
+      height: var(--footer-h);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 8px 6px;
+      flex-shrink: 0;
+    }
+
+    #recruit-buttons {
+      display: flex;
+      gap: 6px;
+    }
+
+    .recruit-btn {
+      flex: 1;
+      background: #1e2538;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 6px 4px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s, opacity 0.1s;
+      min-height: 52px;
+    }
+
+    .recruit-btn .r-emoji { font-size: 18px; line-height: 1; }
+    .recruit-btn .r-name  { font-size: 10px; color: var(--text-muted); }
+    .recruit-btn .r-cost  { font-size: 10px; color: var(--accent); font-weight: 600; }
+
+    .recruit-btn:active { background: #2a3248; }
+    .recruit-btn.disabled { opacity: 0.35; pointer-events: none; }
+
+    #end-turn-btn {
+      background: #1d4ed8;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      height: 40px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s;
+    }
+
+    #end-turn-btn:active  { background: #1e40af; }
+    #end-turn-btn:disabled { background: #374151; color: var(--text-muted); cursor: not-allowed; }
+
+    /* ─── OVERLAY ─── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    #overlay-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px 24px;
+      text-align: center;
+      max-width: 300px;
+      width: 90%;
+    }
+
+    #overlay-title {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    #overlay-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    #restart-btn {
+      background: #1d4ed8;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 12px 32px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #restart-btn:active { background: #1e40af; }
+  </style>
+</head>
+<body>
+
+<header id="header">
+  <div id="turn-info"><span class="dot" id="turn-dot"></span><span id="turn-text">Senin Sıran</span></div>
+  <div id="gold-display">🪙 <span id="gold-val">10</span></div>
+  <div id="turn-counter">Tur <span id="turn-num">1</span></div>
+</header>
+
+<div id="game-area">
+  <div id="status-bar">Bir birim seç veya işe al</div>
+  <div id="grid"></div>
+</div>
+
+<footer id="bottom-panel">
+  <div id="recruit-buttons">
+    <button class="recruit-btn" id="btn-warrior" onclick="recruitUnit('warrior')">
+      <span class="r-emoji">⚔️</span>
+      <span class="r-name">Savaşçı</span>
+      <span class="r-cost">3🪙 HP:4</span>
+    </button>
+    <button class="recruit-btn" id="btn-archer" onclick="recruitUnit('archer')">
+      <span class="r-emoji">🏹</span>
+      <span class="r-name">Okçu</span>
+      <span class="r-cost">4🪙 HP:2</span>
+    </button>
+    <button class="recruit-btn" id="btn-knight" onclick="recruitUnit('knight')">
+      <span class="r-emoji">🛡️</span>
+      <span class="r-name">Şövalye</span>
+      <span class="r-cost">6🪙 HP:6</span>
+    </button>
+  </div>
+  <button id="end-turn-btn" onclick="endPlayerTurn()">Sırayı Bitir ➡️</button>
+</footer>
+
+<div id="ai-thinking" style="display:none">
+  <div>⚙️ Düşman düşünüyor…</div>
+</div>
+
+<div id="overlay" style="display:none">
+  <div id="overlay-box">
+    <div id="overlay-title"></div>
+    <div id="overlay-sub"></div>
+    <button id="restart-btn" onclick="initGame()">Yeniden Başla</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════
+const GRID = 7;
+
+const UNIT_DEFS = {
+  warrior: { emoji: '⚔️', cost: 3, atk: 2, hp: 4, range: 1, label: 'Savaşçı' },
+  archer:  { emoji: '🏹', cost: 4, atk: 3, hp: 2, range: 2, label: 'Okçu'    },
+  knight:  { emoji: '🛡️', cost: 6, atk: 3, hp: 6, range: 1, label: 'Şövalye' },
+};
+
+const TERRAIN_DEF = {
+  plains:      { emoji: '🌿', passable: true,  def: 0 },
+  forest:      { emoji: '🌲', passable: true,  def: 1 },
+  mountain:    { emoji: '⛰️', passable: false, def: 0 },
+  mine:        { emoji: '⛏️', passable: true,  def: 0 },
+  base_player: { emoji: '🏰', passable: true,  def: 0 },
+  base_ai:     { emoji: '🔴', passable: true,  def: 0 },
+};
+
+// Map layout: B=base_player, E=base_ai, F=forest, M=mine, m=mountain, .=plains
+const MAP_LAYOUT = [
+  ['B', '.', 'F', '.', 'M', '.', '.'],
+  ['.', 'F', '.', '.', '.', 'M', '.'],
+  ['F', '.', 'm', '.', '.', '.', 'F'],
+  ['.', 'M', '.', 'm', '.', 'M', '.'],
+  ['F', '.', '.', '.', 'm', '.', 'F'],
+  ['.', 'M', '.', '.', '.', 'F', '.'],
+  ['.', '.', 'M', '.', 'F', '.', 'E'],
+];
+
+const TERRAIN_KEY = { B: 'base_player', E: 'base_ai', F: 'forest', M: 'mine', m: 'mountain', '.': 'plains' };
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let S = {};
+
+function initGame() {
+  S = {
+    grid: [],
+    playerGold: 10,
+    aiGold: 10,
+    turn: 'player',
+    turnNumber: 1,
+    selected: null,
+    validMoves: [],
+    validAttacks: [],
+    gameOver: false,
+  };
+
+  // Build grid
+  for (let r = 0; r < GRID; r++) {
+    S.grid[r] = [];
+    for (let c = 0; c < GRID; c++) {
+      S.grid[r][c] = {
+        r, c,
+        terrain: TERRAIN_KEY[MAP_LAYOUT[r][c]],
+        unit: null,
+      };
+    }
+  }
+
+  // Starting units — 1 warrior each at their base
+  spawnUnit(0, 0, 'player', 'warrior');
+  spawnUnit(6, 6, 'ai', 'warrior');
+
+  document.getElementById('overlay').style.display = 'none';
+  renderAll();
+  updateHeader();
+  setStatus('Bir birim seç veya işe al');
+}
+
+function spawnUnit(r, c, owner, type) {
+  const def = UNIT_DEFS[type];
+  S.grid[r][c].unit = {
+    owner, type,
+    hp: def.hp, maxHp: def.hp,
+    atk: def.atk, range: def.range,
+    moved: false,
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════════════════
+function renderAll() {
+  const gridEl = document.getElementById('grid');
+
+  // Build or update cells
+  if (gridEl.children.length !== GRID * GRID) {
+    gridEl.innerHTML = '';
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const el = document.createElement('div');
+        el.className = 'cell';
+        el.dataset.r = r;
+        el.dataset.c = c;
+        el.addEventListener('click', () => onCellTap(r, c));
+        gridEl.appendChild(el);
+      }
+    }
+  }
+
+  const moveSet   = new Set(S.validMoves.map(p => key(p.r, p.c)));
+  const attackSet = new Set(S.validAttacks.map(p => key(p.r, p.c)));
+  const selKey    = S.selected ? key(S.selected.r, S.selected.c) : null;
+
+  const cells = gridEl.children;
+  let idx = 0;
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      const cell = S.grid[r][c];
+      const el = cells[idx++];
+      const k = key(r, c);
+
+      // terrain class
+      let cls = `cell t-${cell.terrain}`;
+
+      // owner ring
+      if (cell.unit) {
+        cls += cell.unit.owner === 'player' ? ' owner-player' : ' owner-ai';
+        if (cell.unit.moved) cls += ' unit-moved';
+      }
+
+      // highlight
+      if (k === selKey)        cls += ' hl-selected';
+      else if (moveSet.has(k)) cls += ' hl-move';
+      else if (attackSet.has(k)) cls += ' hl-attack';
+
+      el.className = cls;
+
+      // inner HTML
+      let html = '';
+      const td = TERRAIN_DEF[cell.terrain];
+      if (td.emoji) html += `<span class="terrain-icon">${td.emoji}</span>`;
+
+      if (cell.unit) {
+        const ud = UNIT_DEFS[cell.unit.type];
+        html += `<span class="unit-icon">${ud.emoji}</span>`;
+        const pct = Math.round((cell.unit.hp / cell.unit.maxHp) * 100);
+        const hpCls = pct > 60 ? 'hp-high' : pct > 30 ? 'hp-mid' : 'hp-low';
+        html += `<div class="hp-bar"><div class="hp-fill ${hpCls}" style="width:${pct}%"></div></div>`;
+      }
+
+      el.innerHTML = html;
+    }
+  }
+}
+
+function updateHeader() {
+  document.getElementById('gold-val').textContent = S.playerGold;
+  document.getElementById('turn-num').textContent = S.turnNumber;
+
+  const isPlayer = S.turn === 'player';
+  document.getElementById('turn-text').textContent = isPlayer ? 'Senin Sıran' : 'Düşman Sırası';
+  const dot = document.getElementById('turn-dot');
+  dot.style.background = isPlayer ? '#3b82f6' : '#ef4444';
+
+  document.getElementById('end-turn-btn').disabled = !isPlayer || S.gameOver;
+
+  ['warrior', 'archer', 'knight'].forEach(type => {
+    const btn = document.getElementById(`btn-${type}`);
+    const canAfford = S.playerGold >= UNIT_DEFS[type].cost;
+    const canSpawn = !!findSpawnCell('player');
+    btn.classList.toggle('disabled', !isPlayer || !canAfford || !canSpawn || S.gameOver);
+  });
+}
+
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════
+function onCellTap(r, c) {
+  if (S.turn !== 'player' || S.gameOver) return;
+
+  const cell = S.grid[r][c];
+  const k = key(r, c);
+
+  if (S.selected) {
+    const inMove   = S.validMoves.some(p => p.r === r && p.c === c);
+    const inAttack = S.validAttacks.some(p => p.r === r && p.c === c);
+
+    if (inAttack) {
+      attackUnit(S.selected.r, S.selected.c, r, c);
+      clearSelection();
+      renderAll();
+      updateHeader();
+      return;
+    }
+
+    if (inMove) {
+      moveUnit(S.selected.r, S.selected.c, r, c);
+      clearSelection();
+      renderAll();
+      updateHeader();
+      return;
+    }
+
+    // tap on another own unit → re-select
+    if (cell.unit && cell.unit.owner === 'player' && !cell.unit.moved) {
+      selectUnit(r, c);
+      renderAll();
+      updateHeader();
+      return;
+    }
+
+    clearSelection();
+    renderAll();
+    updateHeader();
+    return;
+  }
+
+  // No selection — tap on own unit
+  if (cell.unit && cell.unit.owner === 'player') {
+    if (cell.unit.moved) {
+      setStatus(`${UNIT_DEFS[cell.unit.type].label} bu tur zaten hareket etti`);
+      return;
+    }
+    selectUnit(r, c);
+    renderAll();
+    updateHeader();
+  }
+}
+
+function selectUnit(r, c) {
+  S.selected = { r, c };
+  const unit = S.grid[r][c].unit;
+  const ud = UNIT_DEFS[unit.type];
+
+  S.validMoves = [];
+  S.validAttacks = [];
+
+  for (let dr = -unit.range; dr <= unit.range; dr++) {
+    for (let dc = -unit.range; dc <= unit.range; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr, nc = c + dc;
+      if (!inBounds(nr, nc)) continue;
+      const target = S.grid[nr][nc];
+      const dist = Math.max(Math.abs(dr), Math.abs(dc));
+
+      if (dist === 1 && !target.unit && TERRAIN_DEF[target.terrain].passable) {
+        S.validMoves.push({ r: nr, c: nc });
+      } else if (target.unit && target.unit.owner === 'ai' && dist <= unit.range) {
+        S.validAttacks.push({ r: nr, c: nc });
+      }
+    }
+  }
+
+  const def = UNIT_DEFS[unit.type];
+  const hasActions = S.validMoves.length + S.validAttacks.length;
+  if (hasActions) {
+    setStatus(`${def.emoji} ${def.label} — Yeşil:Hareket  Kırmızı:Saldırı`);
+  } else {
+    setStatus(`${def.emoji} ${def.label} — Hareket imkânı yok`);
+  }
+}
+
+function clearSelection() {
+  S.selected = null;
+  S.validMoves = [];
+  S.validAttacks = [];
+  setStatus('Bir birim seç veya işe al');
+}
+
+// ═══════════════════════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════════════════════
+function moveUnit(fr, fc, tr, tc) {
+  const unit = S.grid[fr][fc].unit;
+  S.grid[tr][tc].unit = unit;
+  S.grid[fr][fc].unit = null;
+  unit.moved = true;
+  checkWin();
+}
+
+function attackUnit(fr, fc, tr, tc) {
+  const attacker = S.grid[fr][fc].unit;
+  const defender = S.grid[tr][tc].unit;
+  if (!attacker || !defender) return;
+
+  const defBonus = TERRAIN_DEF[S.grid[tr][tc].terrain].def;
+  const atkBonus = TERRAIN_DEF[S.grid[fr][fc].terrain].def;
+
+  let dmg = Math.max(1, attacker.atk - defBonus);
+  defender.hp -= dmg;
+
+  // Counter-attack (melee only, if defender still alive)
+  if (defender.hp > 0 && defender.range === 1) {
+    const counter = Math.max(0, Math.floor(defender.atk / 2) - atkBonus);
+    attacker.hp -= counter;
+  }
+
+  attacker.moved = true;
+
+  if (attacker.hp <= 0) S.grid[fr][fc].unit = null;
+
+  if (defender.hp <= 0) {
+    S.grid[tr][tc].unit = null;
+  }
+
+  checkWin();
+}
+
+function collectIncome(owner) {
+  let income = 2; // base income
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      const cell = S.grid[r][c];
+      if (cell.terrain === 'mine' && cell.unit && cell.unit.owner === owner) {
+        income += 2;
+      }
+    }
+  }
+  if (owner === 'player') S.playerGold += income;
+  else S.aiGold += income;
+}
+
+function resetMoved(owner) {
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      const u = S.grid[r][c].unit;
+      if (u && u.owner === owner) u.moved = false;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  RECRUITING
+// ═══════════════════════════════════════════════════════
+function findSpawnCell(owner) {
+  const spots = owner === 'player'
+    ? [[0,0],[0,1],[1,0],[1,1],[0,2],[2,0]]
+    : [[6,6],[6,5],[5,6],[5,5],[6,4],[4,6]];
+  for (const [r, c] of spots) {
+    const cell = S.grid[r][c];
+    if (!cell.unit && TERRAIN_DEF[cell.terrain].passable) return { r, c };
+  }
+  return null;
+}
+
+function recruitUnit(type) {
+  if (S.turn !== 'player' || S.gameOver) return;
+  const cost = UNIT_DEFS[type].cost;
+  if (S.playerGold < cost) return;
+  const spot = findSpawnCell('player');
+  if (!spot) { setStatus('⚠️ Kale çevresinde yer yok!'); return; }
+
+  S.playerGold -= cost;
+  spawnUnit(spot.r, spot.c, 'player', type);
+  S.grid[spot.r][spot.c].unit.moved = true; // can't act turn they spawn
+  clearSelection();
+  renderAll();
+  updateHeader();
+}
+
+// ═══════════════════════════════════════════════════════
+//  PLAYER END TURN
+// ═══════════════════════════════════════════════════════
+function endPlayerTurn() {
+  if (S.turn !== 'player' || S.gameOver) return;
+  clearSelection();
+  S.turn = 'ai';
+  renderAll();
+  updateHeader();
+  document.getElementById('ai-thinking').style.display = 'flex';
+  setTimeout(runAITurn, 700);
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI TURN
+// ═══════════════════════════════════════════════════════
+function runAITurn() {
+  collectIncome('ai');
+  resetMoved('ai');
+  aiRecruit();
+  aiActUnits();
+
+  document.getElementById('ai-thinking').style.display = 'none';
+
+  if (!S.gameOver) {
+    S.turn = 'player';
+    S.turnNumber++;
+    collectIncome('player');
+    resetMoved('player');
+    renderAll();
+    updateHeader();
+    setStatus('Altın toplandı — bir birim seç veya işe al');
+  }
+}
+
+function aiRecruit() {
+  const priority = ['knight', 'archer', 'warrior'];
+  for (const type of priority) {
+    if (S.aiGold >= UNIT_DEFS[type].cost) {
+      const spot = findSpawnCell('ai');
+      if (!spot) break;
+      S.aiGold -= UNIT_DEFS[type].cost;
+      spawnUnit(spot.r, spot.c, 'ai', type);
+      S.grid[spot.r][spot.c].unit.moved = true;
+      break; // recruit one per turn
+    }
+  }
+}
+
+function aiActUnits() {
+  // Collect AI unit positions (snapshot to avoid mutation issues mid-loop)
+  const units = [];
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      if (S.grid[r][c].unit && S.grid[r][c].unit.owner === 'ai') {
+        units.push({ r, c });
+      }
+    }
+  }
+
+  // Shuffle for variety
+  for (let i = units.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [units[i], units[j]] = [units[j], units[i]];
+  }
+
+  for (const { r, c } of units) {
+    if (S.gameOver) break;
+    const unit = S.grid[r][c].unit;
+    if (!unit || unit.moved) continue;
+
+    // Phase 1: attack
+    let attacked = false;
+    let bestTarget = null;
+    let bestHP = Infinity;
+
+    for (let dr = -unit.range; dr <= unit.range; dr++) {
+      for (let dc = -unit.range; dc <= unit.range; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const dist = Math.max(Math.abs(dr), Math.abs(dc));
+        if (dist > unit.range) continue;
+        const nr = r + dr, nc = c + dc;
+        if (!inBounds(nr, nc)) continue;
+        const t = S.grid[nr][nc];
+        if (t.unit && t.unit.owner === 'player' && t.unit.hp < bestHP) {
+          bestHP = t.unit.hp;
+          bestTarget = { r: nr, c: nc };
+        }
+      }
+    }
+
+    if (bestTarget) {
+      attackUnit(r, c, bestTarget.r, bestTarget.c);
+      attacked = true;
+      if (S.gameOver) break;
+    }
+
+    // Re-check unit still alive
+    const stillAlive = S.grid[r][c].unit;
+    if (!stillAlive || stillAlive.moved) continue;
+
+    // Phase 2: move toward player base (0,0)
+    let bestMove = null;
+    let bestDist = chebyshev(r, c, 0, 0);
+
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (!inBounds(nr, nc)) continue;
+        const t = S.grid[nr][nc];
+        if (!t.unit && TERRAIN_DEF[t.terrain].passable) {
+          const d = chebyshev(nr, nc, 0, 0);
+          // Prefer mines as tiebreaker for income
+          const score = d * 10 - (t.terrain === 'mine' ? 1 : 0);
+          if (score < bestDist * 10) {
+            bestDist = d;
+            bestMove = { r: nr, c: nc };
+          }
+        }
+      }
+    }
+
+    if (bestMove) {
+      moveUnit(r, c, bestMove.r, bestMove.c);
+      if (S.gameOver) break;
+    } else {
+      S.grid[r][c].unit.moved = true;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  WIN / LOSE CHECK
+// ═══════════════════════════════════════════════════════
+function checkWin() {
+  // Player captures AI base
+  if (S.grid[6][6].unit && S.grid[6][6].unit.owner === 'player') {
+    showOverlay('🏆 Zafer!', `${S.turnNumber}. turda düşman kalesini ele geçirdiniz!`);
+    return;
+  }
+  // AI captures player base
+  if (S.grid[0][0].unit && S.grid[0][0].unit.owner === 'ai') {
+    showOverlay('💀 Yenildiniz!', 'Kaleniz düştü. Tekrar deneyin!');
+    return;
+  }
+  // All player units destroyed
+  let hasPlayer = false;
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      if (S.grid[r][c].unit && S.grid[r][c].unit.owner === 'player') hasPlayer = true;
+    }
+  }
+  if (!hasPlayer) {
+    showOverlay('💀 Yenildiniz!', 'Tüm birlikleriniz yok edildi!');
+  }
+}
+
+function showOverlay(title, sub) {
+  S.gameOver = true;
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-sub').textContent = sub;
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('ai-thinking').style.display = 'none';
+  renderAll();
+  updateHeader();
+}
+
+// ═══════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════
+function key(r, c) { return r * GRID + c; }
+function inBounds(r, c) { return r >= 0 && r < GRID && c >= 0 && c < GRID; }
+function chebyshev(r1, c1, r2, c2) { return Math.max(Math.abs(r1 - r2), Math.abs(c1 - c2)); }
+
+// ═══════════════════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════════════════
+initGame();
+</script>
+</body>
+</html>
