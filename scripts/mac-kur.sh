@@ -151,7 +151,10 @@ cd "\$APP_DIR" 2>/dev/null || {
 mkdir -p "\$APP_DIR/data"
 
 if ! curl -fs -o /dev/null "\$URL/api/status"; then
-  nohup "\$NODE_BIN" server/index.js >> "\$APP_DIR/data/sunucu.log" 2>&1 &
+  # Mutlak yolla başlat: süreç satırı benzersiz olur, durdururken yanlış
+  # süreci hedeflemeyiz. PID'i de dosyaya yazıyoruz.
+  nohup "\$NODE_BIN" "\$APP_DIR/server/index.js" >> "\$APP_DIR/data/sunucu.log" 2>&1 &
+  echo \$! > "\$APP_DIR/data/sunucu.pid"
   for _ in \$(seq 1 60); do
     curl -fs -o /dev/null "\$URL/api/status" && break
     sleep 0.25
@@ -199,14 +202,61 @@ touch "$DESKTOP_APP"
 ok "Masaüstünde ALAS.app hazır"
 
 # Sunucuyu durdurmak için küçük yardımcı (nadiren gerekir).
-cat > "$APP_DIR/durdur.command" <<'STOP'
+cat > "$APP_DIR/durdur.command" <<STOP
 #!/bin/bash
-pkill -f "node server/index.js" && echo "ALAS durduruldu." || echo "ALAS zaten çalışmıyor."
+APP_DIR="$APP_DIR"
+pidfile="\$APP_DIR/data/sunucu.pid"
+pid=""
+[ -f "\$pidfile" ] && pid="\$(cat "\$pidfile" 2>/dev/null)"
+if [ -n "\$pid" ] && kill -0 "\$pid" 2>/dev/null; then
+  kill "\$pid" && rm -f "\$pidfile" && echo "ALAS durduruldu."
+elif pkill -f "\$APP_DIR/server/index.js" 2>/dev/null; then
+  echo "ALAS durduruldu."
+else
+  echo "ALAS zaten çalışmıyor."
+fi
 sleep 1
 STOP
 chmod +x "$APP_DIR/durdur.command"
 
 # ------------------------------------------------------------------ 5. Başlat
+
+# Çalışan eski sunucu durdurulmazsa güncelleme yarım kalır: başlatıcı portu
+# cevap veriyor görüp yeni sunucuyu hiç başlatmaz, panel diskten yeni dosyaları
+# okuduğu halde API eski süreçte kalır (yeni uçlar 404 döner).
+step "Çalışan sürüm durduruluyor"
+# Portu tutan süreci hedefler. PID dosyası önce denenir; yoksa (eski sürümden
+# kalan, farklı komut satırıyla başlatılmış süreçler için) portun sahibi
+# bulunur. Komut satırı kalıbıyla arama yapmıyoruz: "node server/index.js"
+# gibi geniş bir kalıp alakasız süreçleri de vurabilir.
+alas_durdur() {
+  local pidfile="$APP_DIR/data/sunucu.pid" pid="" port_pids=""
+
+  [ -f "$pidfile" ] && pid="$(cat "$pidfile" 2>/dev/null)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    rm -f "$pidfile"
+    return 0
+  fi
+  rm -f "$pidfile"
+
+  port_pids="$(lsof -ti "tcp:$PORT" -sTCP:LISTEN 2>/dev/null || true)"
+  [ -z "$port_pids" ] && return 1
+  # shellcheck disable=SC2086
+  kill $port_pids 2>/dev/null
+  return 0
+}
+
+if alas_durdur; then
+  # Portun serbest kalmasını bekle, yoksa yeni sunucu "adres kullanımda" der.
+  for _ in $(seq 1 20); do
+    curl -fs -o /dev/null "http://127.0.0.1:$PORT/api/status" || break
+    sleep 0.25
+  done
+  ok "Eski sürüm durduruldu"
+else
+  ok "Çalışan sürüm yoktu"
+fi
 
 step "Başlatılıyor"
 open "$DESKTOP_APP"
