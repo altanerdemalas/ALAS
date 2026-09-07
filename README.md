@@ -28,6 +28,25 @@ ajanın kendine sorduğu takip soruları. Son madde döngüyü kapatır — gün
 
 ## Kurulum
 
+### macOS — tek adım (önerilen)
+
+Terminal'i aç, şunu yapıştır ve Enter'a bas:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/altanerdemalas/ALAS/refs/heads/claude/printify-ai-ecommerce-nfp5vq/scripts/mac-kur.sh | bash
+```
+
+Betik Node.js'i kontrol eder (yoksa kurmayı teklif eder), programı `~/ALAS` içine
+indirir, bağımlılıkları kurar, paneli derler ve **masaüstüne çift tıklanabilir bir
+`ALAS.app` koyar**. Sonrasında sadece ikona tıklarsın.
+
+- Durdurmak için: `~/ALAS/durdur.command` (çift tıkla) — nadiren gerekir.
+- Güncellemek için: aynı komutu tekrar çalıştır (`data/` ve `.env` korunur).
+
+### Elle kurulum (her platform)
+
+Node.js 22.5+ gerekir.
+
 ```bash
 npm install
 cp .env.example .env      # anahtarları buraya gir (opsiyonel, aşağıya bak)
