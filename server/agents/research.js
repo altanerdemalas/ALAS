@@ -36,10 +36,13 @@ const schemaHint = `JSON şeması:
 
 /** Sıradaki konuyu seç: aktif, en yüksek öncelikli, en uzun süredir çalışmamış. */
 export function nextTopic() {
+  // Önce hiç araştırılmamış konular (öncelik sırasıyla), sonra en uzun süredir
+  // dokunulmayanlar. Öncelik başa alınırsa yüksek öncelikli birkaç konu sonsuza
+  // kadar döner ve gündemin geri kalanına hiç sıra gelmez.
   return get(`
     SELECT * FROM topics
     WHERE active = 1
-    ORDER BY priority ASC, COALESCE(last_run_at, '0000') ASC, id ASC
+    ORDER BY (last_run_at IS NULL) DESC, last_run_at ASC, priority ASC, id ASC
     LIMIT 1
   `);
 }
@@ -78,7 +81,7 @@ export async function researchTopic(topicId) {
         ? await askJson(SYSTEM, prompt, { webSearch: true })
         : demoRun(topic);
 
-    persist(runId, data, sources);
+    const added = persist(runId, data, sources);
 
     run(
       `UPDATE runs SET status = 'done', finished_at = datetime('now'),
@@ -89,13 +92,15 @@ export async function researchTopic(topicId) {
     );
     run("UPDATE topics SET last_run_at = datetime('now') WHERE id = ?", topic.id);
 
-    const counts = {
-      findings: data.findings?.length ?? 0,
-      niches: data.niches?.length ?? 0,
-      lesson: data.lesson ? 1 : 0,
-    };
-    logEvent('research', `Araştırma tamamlandı: ${topic.title}`, { runId, mode, ...counts });
-    return { runId, mode, ...counts };
+    const yeni = added.findings + added.niches + added.lesson;
+    logEvent(
+      'research',
+      yeni > 0
+        ? `Araştırma tamamlandı: ${topic.title}`
+        : `Araştırma tamamlandı (yeni bilgi çıkmadı): ${topic.title}`,
+      { runId, mode, ...added },
+    );
+    return { runId, mode, ...added };
   } catch (error) {
     run("UPDATE runs SET status = 'error', error = ?, finished_at = datetime('now') WHERE id = ?", String(error.message), runId);
     logEvent('error', `Araştırma başarısız: ${topic.title} — ${error.message}`, { runId });
@@ -105,15 +110,20 @@ export async function researchTopic(topicId) {
 
 function persist(runId, data, sources) {
   const sourceJson = JSON.stringify(sources ?? []);
+  let added = { findings: 0, niches: 0, lesson: 0 };
 
+  // Aynı konu tekrar araştırıldığında bilgi tabanı çoğaltılmaz; zaten bilinen
+  // başlıklar atlanır. Panelde aynı dersin iki kez görünmesini bu engeller.
   for (const f of data.findings ?? []) {
+    if (!f?.title || get('SELECT id FROM findings WHERE title = ?', f.title)) continue;
     run(
       'INSERT INTO findings (run_id, title, summary, detail, category, confidence, sources) VALUES (?, ?, ?, ?, ?, ?, ?)',
       runId, f.title, f.summary, f.detail ?? '', f.category ?? null, f.confidence ?? 'orta', sourceJson,
     );
+    added.findings++;
   }
 
-  if (data.lesson?.title) {
+  if (data.lesson?.title && !get('SELECT id FROM lessons WHERE title = ?', data.lesson.title)) {
     const l = data.lesson;
     run(
       `INSERT INTO lessons (title, track, level, summary, body_md, action_items, sources, origin, run_id)
@@ -121,9 +131,11 @@ function persist(runId, data, sources) {
       l.title, data.track ?? 'genel', l.level ?? 1, l.summary ?? '', l.body_md ?? '',
       JSON.stringify(l.action_items ?? []), sourceJson, runId,
     );
+    added.lesson = 1;
   }
 
   for (const n of data.niches ?? []) {
+    if (!n?.name || get('SELECT id FROM niches WHERE name = ?', n.name)) continue;
     run(
       `INSERT INTO niches (name, audience, rationale, demand, competition, margin, seasonality, score, run_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -131,6 +143,7 @@ function persist(runId, data, sources) {
       clamp(n.demand), clamp(n.competition), clamp(n.margin), n.seasonality ?? '',
       nicheScore(n), runId,
     );
+    added.niches++;
   }
 
   // Modelin önerdiği takip soruları gündeme düşük öncelikli konu olarak eklenir:
@@ -145,6 +158,8 @@ function persist(runId, data, sources) {
       );
     }
   }
+
+  return added;
 }
 
 /** Demo modunu askJson ile aynı şekle sokar: { data, sources, usage }. */

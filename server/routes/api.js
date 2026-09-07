@@ -1,10 +1,12 @@
 import { Router } from 'express';
-import { all, get, run, parseJson } from '../db.js';
+import { all, get, run, parseJson, logEvent } from '../db.js';
 import { config, hasAI, hasPrintify } from '../config.js';
 import { listTopics, researchTopic, runResearchCycle, nextTopic } from '../agents/research.js';
 import { generateIdeas } from '../agents/product.js';
 import { refreshActions } from '../agents/coach.js';
 import * as printify from '../integrations/printify.js';
+import { setEnvValue, maskSecret } from '../lib/env.js';
+import { resetClient } from '../lib/ai.js';
 
 export const api = Router();
 
@@ -38,6 +40,51 @@ api.get('/status', (req, res) => {
     research: { cron: config.research.cron, next: nextTopic() },
     recentEvents: all('SELECT * FROM events ORDER BY id DESC LIMIT 12'),
   });
+});
+
+// ------------------------------------------------------------- anahtarlar
+
+// Anahtarlar .env dosyasında tutulur. Sunucu yalnızca 127.0.0.1'i dinlediği
+// için bu uçlara sadece bu bilgisayardan erişilebilir; değer hiçbir zaman
+// maskesiz geri döndürülmez.
+
+api.get('/settings/keys', (req, res) => {
+  res.json({
+    anthropic: { set: Boolean(config.anthropic.apiKey), masked: maskSecret(config.anthropic.apiKey) },
+    printify: { set: Boolean(config.printify.token), masked: maskSecret(config.printify.token) },
+    shopId: config.printify.shopId || '',
+  });
+});
+
+api.post('/settings/keys', (req, res) => {
+  const { anthropicKey, printifyToken, shopId } = req.body ?? {};
+  const updated = [];
+
+  if (typeof anthropicKey === 'string' && anthropicKey.trim()) {
+    const key = anthropicKey.trim();
+    if (!key.startsWith('sk-ant-')) {
+      return res.status(400).json({ error: 'Anthropic anahtarı "sk-ant-" ile başlamalı. Anahtarın tamamını kopyaladığından emin ol.' });
+    }
+    setEnvValue('ANTHROPIC_API_KEY', key);
+    config.anthropic.apiKey = key;
+    resetClient();
+    updated.push('Anthropic');
+  }
+
+  if (typeof printifyToken === 'string' && printifyToken.trim()) {
+    const token = printifyToken.trim();
+    setEnvValue('PRINTIFY_API_TOKEN', token);
+    config.printify.token = token;
+    updated.push('Printify');
+  }
+
+  if (typeof shopId === 'string') {
+    setEnvValue('PRINTIFY_SHOP_ID', shopId.trim());
+    config.printify.shopId = shopId.trim();
+  }
+
+  logEvent('settings', `Anahtar güncellendi: ${updated.join(', ') || 'mağaza ID'}`);
+  res.json({ ok: true, updated });
 });
 
 // ------------------------------------------------------------ araştırma

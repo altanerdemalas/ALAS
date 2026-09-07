@@ -125,6 +125,24 @@ CREATE INDEX IF NOT EXISTS idx_lessons_status ON lessons(status);
 CREATE INDEX IF NOT EXISTS idx_ideas_niche ON product_ideas(niche_id);
 `);
 
+// Eski sürümler aynı konu tekrar araştırıldığında kopya kayıt üretiyordu.
+// Açılışta her başlıktan yalnızca ilk kaydı bırakıp kalanları temizliyoruz;
+// tekrarın kaynağı agents/research.js içinde ayrıca kapatıldı.
+db.exec(`
+DELETE FROM findings WHERE id NOT IN (SELECT MIN(id) FROM findings GROUP BY title);
+DELETE FROM lessons  WHERE id NOT IN (SELECT MIN(id) FROM lessons  GROUP BY title);
+DELETE FROM niches   WHERE id NOT IN (SELECT MIN(id) FROM niches   GROUP BY name);
+DELETE FROM actions  WHERE id NOT IN (SELECT MIN(id) FROM actions  GROUP BY title);
+DELETE FROM product_ideas WHERE id NOT IN (SELECT MIN(id) FROM product_ideas GROUP BY title);
+`);
+
+// Aynı başlık bir daha hiç girmesin diye veritabanı seviyesinde de kilitliyoruz.
+db.exec(`
+CREATE UNIQUE INDEX IF NOT EXISTS idx_findings_title ON findings(title);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lessons_title  ON lessons(title);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_niches_name    ON niches(name);
+`);
+
 /** SELECT — satır dizisi döndürür (null-prototype objeleri düzleştirir). */
 export const all = (sql, ...params) =>
   db.prepare(sql).all(...params).map((row) => ({ ...row }));

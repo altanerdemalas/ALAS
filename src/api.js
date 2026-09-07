@@ -33,6 +33,9 @@ export const api = {
   refreshActions: () => request('/actions/refresh', { method: 'POST' }),
   setActionStatus: (id, status) => request(`/actions/${id}`, { method: 'PATCH', body: { status } }),
 
+  keys: () => request('/settings/keys'),
+  saveKeys: (body) => request('/settings/keys', { method: 'POST', body }),
+
   printifyStatus: () => request('/printify/status'),
   blueprints: () => request('/printify/blueprints'),
 };

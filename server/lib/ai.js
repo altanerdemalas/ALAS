@@ -4,6 +4,9 @@ import { config, hasAI } from '../config.js';
 let client = null;
 const getClient = () => (client ??= new Anthropic({ apiKey: config.anthropic.apiKey }));
 
+/** Anahtar panelden değiştirildiğinde istemciyi tazeler (yeniden başlatma gerekmez). */
+export const resetClient = () => { client = null; };
+
 /**
  * Modelden JSON isteyip parse eder. `webSearch` açıkken Anthropic'in sunucu
  * taraflı web arama aracı devreye girer; kaynak URL'lerini de toplarız.

@@ -32,7 +32,9 @@ if (config.research.cron !== 'off') {
   });
 }
 
-app.listen(config.port, () => {
+// Yalnızca bu bilgisayardan erişilebilsin: panel API anahtarı yazabildiği için
+// sunucuyu ağa açmıyoruz.
+app.listen(config.port, '127.0.0.1', () => {
   console.log(`ALAS POD ajanı → http://localhost:${config.port}`);
   console.log(`  AI       : ${hasAI() ? `bağlı (${config.anthropic.model})` : 'DEMO modu (ANTHROPIC_API_KEY yok)'}`);
   console.log(`  Printify : ${hasPrintify() ? 'bağlı' : 'bağlı değil (PRINTIFY_API_TOKEN yok)'}`);
