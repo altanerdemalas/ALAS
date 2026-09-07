@@ -14,7 +14,8 @@ export const config = {
   printify: {
     token: process.env.PRINTIFY_API_TOKEN || '',
     shopId: process.env.PRINTIFY_SHOP_ID || '',
-    baseUrl: 'https://api.printify.com/v1',
+    // Testlerde sahte sunucuya yönlendirilebilsin diye değiştirilebilir.
+    baseUrl: process.env.PRINTIFY_BASE_URL || 'https://api.printify.com/v1',
   },
 
   // Kullanıcı profili: ajan araştırmayı ve dersleri buna göre kişiselleştirir.

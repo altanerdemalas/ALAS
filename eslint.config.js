@@ -28,7 +28,7 @@ export default defineConfig([
   },
   {
     // Sunucu tarafı Node ortamında çalışır, tarayıcı globalleri geçerli değil.
-    files: ['server/**/*.js', 'vite.config.js', 'eslint.config.js'],
+    files: ['server/**/*.js', 'test/**/*.js', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
     rules: { 'react-refresh/only-export-components': 'off' },
   },
