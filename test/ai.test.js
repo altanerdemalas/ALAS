@@ -119,3 +119,41 @@ test('API hatası (401) yukarı taşınır', async () => {
 
   await assert.rejects(() => askJson('sistem', 'soru'));
 });
+
+test('kredi bitmiş hatası anlaşılır Türkçe mesaja çevrilir', async () => {
+  const askJson = await load();
+  respond = (req, res) => {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      type: 'error',
+      error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' },
+    }));
+  };
+
+  await assert.rejects(() => askJson('sistem', 'soru'), (error) => {
+    assert.match(error.message, /kredi kalmamış/);
+    assert.match(error.message, /Buy credits/);
+    assert.doesNotMatch(error.message, /invalid_request_error/, 'ham JSON kullanıcıya gösterilmemeli');
+    return true;
+  });
+});
+
+test('geçersiz anahtar hatası ne yapılacağını söyler', async () => {
+  const askJson = await load();
+  respond = (req, res) => {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }));
+  };
+
+  await assert.rejects(() => askJson('sistem', 'soru'), /anahtarı geçersiz.*Ayarlar/s);
+});
+
+test('sunucu hatası geçici olduğunu belirtir', async () => {
+  const askJson = await load();
+  respond = (req, res) => {
+    res.writeHead(529, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }));
+  };
+
+  await assert.rejects(() => askJson('sistem', 'soru'), /geçici bir sorun/);
+});

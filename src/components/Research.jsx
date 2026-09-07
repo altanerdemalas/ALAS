@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import { Panel, Button, Tag, Loading, Empty } from './ui';
-import { useLoader } from '../hooks';
+import { useLoader, yerelZaman } from '../hooks';
 
 export function Research() {
   const topics = useLoader(api.topics);
@@ -50,7 +50,7 @@ export function Research() {
                     <strong>{t.title}</strong>
                     <Tag>{t.track}</Tag>
                     <Tag tone={t.priority <= 1 ? 'good' : 'neutral'}>öncelik {t.priority}</Tag>
-                    {t.last_run_at && <span className="muted small">son: {t.last_run_at.slice(0, 10)}</span>}
+                    {t.last_run_at && <span className="muted small">son: {yerelZaman(t.last_run_at, { tarihli: true })}</span>}
                   </div>
                   <p className="muted small">{t.question}</p>
                 </div>

@@ -40,8 +40,8 @@ Betik Node.js'i kontrol eder (yoksa kurmayı teklif eder), programı `~/ALAS` i�
 indirir, bağımlılıkları kurar, paneli derler ve **masaüstüne çift tıklanabilir bir
 `ALAS.app` koyar**. Sonrasında sadece ikona tıklarsın.
 
-- Durdurmak için: `~/ALAS/durdur.command` (çift tıkla) — nadiren gerekir.
-- Güncellemek için: aynı komutu tekrar çalıştır (`data/` ve `.env` korunur).
+Masaüstüne iki kısayol koyar: **ALAS** (başlat) ve **ALAS Güncelle** (son sürüme çek,
+`data/` ve `.env` korunur). Durdurmak için `~/ALAS/durdur.command` — nadiren gerekir.
 
 ### Elle kurulum (her platform)
 

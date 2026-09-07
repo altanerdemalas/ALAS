@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS topics (
   priority INTEGER NOT NULL DEFAULT 3,      -- 1 = en yüksek
   active INTEGER NOT NULL DEFAULT 1,
   last_run_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Her araştırma çalıştırması
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS runs (
   error TEXT,
   input_tokens INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0,
-  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   finished_at TEXT
 );
 
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS findings (
   category TEXT,
   confidence TEXT DEFAULT 'orta',           -- dusuk | orta | yuksek
   sources TEXT DEFAULT '[]',                -- JSON dizi
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Sana öğretilecek dersler (müfredat)
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS lessons (
   status TEXT NOT NULL DEFAULT 'yeni',      -- yeni | okundu | uygulandi
   origin TEXT NOT NULL DEFAULT 'seed',      -- seed | research
   run_id INTEGER REFERENCES runs(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Niş fikirleri ve skorları
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS niches (
   score REAL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'fikir',     -- fikir | test | aktif | elendi
   run_id INTEGER REFERENCES runs(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Ürün fikirleri: tasarım brief'i + hazır listing metni
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS product_ideas (
   channel TEXT,
   status TEXT NOT NULL DEFAULT 'taslak',    -- taslak | onaylandi | yuklendi | elendi
   printify_product_id TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Sıradaki adımlar (ajanın sana verdiği görevler)
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS actions (
   effort TEXT DEFAULT 'orta',               -- kucuk | orta | buyuk
   status TEXT NOT NULL DEFAULT 'acik',      -- acik | yapiliyor | bitti | iptal
   source TEXT DEFAULT 'ajan',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Aktivite kaydı
@@ -117,13 +117,28 @@ CREATE TABLE IF NOT EXISTS events (
   type TEXT NOT NULL,
   message TEXT NOT NULL,
   meta TEXT DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id);
 CREATE INDEX IF NOT EXISTS idx_lessons_status ON lessons(status);
 CREATE INDEX IF NOT EXISTS idx_ideas_niche ON product_ideas(niche_id);
 `);
+
+// Eski sürümler zaman damgasını saat dilimi işareti olmadan yazıyordu; tarayıcı
+// bunu yerel saat sanıp saatleri kaydırıyordu. Değerler zaten UTC, işaretliyoruz.
+const zamanSutunlari = [
+  ['topics', 'created_at'], ['topics', 'last_run_at'],
+  ['runs', 'started_at'], ['runs', 'finished_at'],
+  ['findings', 'created_at'], ['lessons', 'created_at'], ['niches', 'created_at'],
+  ['product_ideas', 'created_at'], ['actions', 'created_at'], ['events', 'created_at'],
+];
+for (const [table, column] of zamanSutunlari) {
+  db.exec(`
+    UPDATE ${table} SET ${column} = replace(${column}, ' ', 'T') || 'Z'
+    WHERE ${column} IS NOT NULL AND ${column} LIKE '____-__-__ __:__:__';
+  `);
+}
 
 // Eski sürümler aynı konu tekrar araştırıldığında kopya kayıt üretiyordu.
 // Açılışta her başlıktan yalnızca ilk kaydı bırakıp kalanları temizliyoruz;

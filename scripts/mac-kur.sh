@@ -12,9 +12,11 @@ set -euo pipefail
 
 BRANCH="claude/printify-ai-ecommerce-nfp5vq"
 TARBALL="https://github.com/altanerdemalas/ALAS/archive/refs/heads/${BRANCH}.tar.gz"
+INSTALLER_URL="https://raw.githubusercontent.com/altanerdemalas/ALAS/refs/heads/${BRANCH}/scripts/mac-kur.sh"
 NODE_PKG="https://nodejs.org/dist/v24.20.0/node-v24.20.0.pkg"
 APP_DIR="$HOME/ALAS"
 DESKTOP_APP="$HOME/Desktop/ALAS.app"
+UPDATER="$HOME/Desktop/ALAS Güncelle.command"
 PORT=3001
 
 bold() { printf '\033[1m%s\033[0m\n' "$1"; }
@@ -27,7 +29,7 @@ die()  { printf '\n\033[31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
 
 echo
 bold "ALAS — Printify POD araştırma ve öğrenme ajanı"
-echo   "Kurulum yeri: $APP_DIR   ·   Masaüstü kısayolu: ALAS.app"
+echo   "Kurulum yeri: $APP_DIR   ·   Masaüstü kısayolları: ALAS, ALAS Güncelle"
 
 # ---------------------------------------------------------------- 1. Node.js
 
@@ -201,6 +203,22 @@ xattr -dr com.apple.quarantine "$DESKTOP_APP" 2>/dev/null || true
 touch "$DESKTOP_APP"
 ok "Masaüstünde ALAS.app hazır"
 
+# Güncelleme kısayolu. .app değil .command: çift tıklayınca macOS bunu
+# Terminal'de açar, böylece ilerleme ve olası şifre sorusu görünür.
+# (Bir .app'ten Terminal'i sürmek macOS'ta ayrıca "Otomasyon" izni ister.)
+cat > "$UPDATER" <<UPD
+#!/bin/bash
+clear
+echo "ALAS güncelleniyor — bu pencereyi kapatma."
+echo
+curl -fsSL "$INSTALLER_URL" | bash
+echo
+echo "Bittiğinde bu pencereyi kapatabilirsin."
+UPD
+chmod +x "$UPDATER"
+xattr -dr com.apple.quarantine "$UPDATER" 2>/dev/null || true
+ok "Masaüstünde \"ALAS Güncelle\" hazır"
+
 # Sunucuyu durdurmak için küçük yardımcı (nadiren gerekir).
 cat > "$APP_DIR/durdur.command" <<STOP
 #!/bin/bash
@@ -267,6 +285,6 @@ printf '\n'
 printf '  • Masaüstündeki \033[1mALAS\033[0m ikonuna çift tıklayarak açarsın.\n'
 printf '  • Program klasörü: %s\n' "$APP_DIR"
 printf '  • Durdurmak için:  %s/durdur.command (çift tıkla)\n' "$APP_DIR"
-printf '  • Güncellemek için bu kurulum komutunu tekrar çalıştır.\n\n'
+printf '  • Güncellemek için masaüstündeki \033[1mALAS Güncelle\033[0m dosyasına çift tıkla.\n\n'
 printf '  Şu an demo modunda çalışıyor. Canlı araştırma için %s/.env\n' "$APP_DIR"
 printf "  dosyasına ANTHROPIC_API_KEY ekleyip ALAS'ı kapatıp aç.\n\n"

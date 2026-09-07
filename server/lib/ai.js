@@ -20,17 +20,21 @@ export async function askJson(system, prompt, { webSearch = false, maxUses = 8 }
     ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxUses }]
     : undefined;
 
-  const stream = await getClient().messages.stream({
-    model: config.anthropic.model,
-    max_tokens: 32000,
-    system,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: config.anthropic.effort },
-    ...(tools ? { tools } : {}),
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const message = await stream.finalMessage();
+  let message;
+  try {
+    const stream = await getClient().messages.stream({
+      model: config.anthropic.model,
+      max_tokens: 32000,
+      system,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: config.anthropic.effort },
+      ...(tools ? { tools } : {}),
+      messages: [{ role: 'user', content: prompt }],
+    });
+    message = await stream.finalMessage();
+  } catch (error) {
+    throw new Error(aciklaHata(error));
+  }
 
   if (message.stop_reason === 'refusal') {
     throw new Error(`Model isteği reddetti: ${message.stop_details?.explanation ?? 'sebep belirtilmedi'}`);
@@ -80,6 +84,38 @@ function collectSources(content) {
     }
   }
   return [...seen.values()];
+}
+
+/**
+ * API hatalarını ham JSON yerine ne yapılacağını söyleyen Türkçe mesaja çevirir.
+ * Panelde kullanıcının gördüğü metin budur.
+ */
+function aciklaHata(error) {
+  if (error instanceof Anthropic.AuthenticationError) {
+    return 'API anahtarı geçersiz. Ayarlar sekmesinden anahtarı kontrol et; '
+      + 'anahtarın tamamını kopyaladığından emin ol.';
+  }
+
+  if (error instanceof Anthropic.RateLimitError) {
+    return 'Anthropic istek sınırına takıldın. Birkaç dakika bekleyip tekrar dene.';
+  }
+
+  if (error instanceof Anthropic.BadRequestError && /credit balance/i.test(error.message)) {
+    return 'Anthropic hesabında kredi kalmamış. console.anthropic.com → Plans & Billing '
+      + '→ Buy credits ile kredi yükle ($5 yeterli), sonra tekrar dene.';
+  }
+
+  if (error instanceof Anthropic.APIConnectionError) {
+    return 'Anthropic sunucusuna ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.';
+  }
+
+  if (error instanceof Anthropic.APIError) {
+    return error.status >= 500
+      ? `Anthropic tarafında geçici bir sorun var (${error.status}). Biraz sonra tekrar dene.`
+      : `Anthropic hatası (${error.status}): ${error.message}`;
+  }
+
+  return error.message;
 }
 
 /** Prompt'lara eklenen ortak kullanıcı profili bağlamı. */

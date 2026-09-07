@@ -84,13 +84,13 @@ export async function researchTopic(topicId) {
     const added = persist(runId, data, sources);
 
     run(
-      `UPDATE runs SET status = 'done', finished_at = datetime('now'),
+      `UPDATE runs SET status = 'done', finished_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
        input_tokens = ?, output_tokens = ? WHERE id = ?`,
       usage.input_tokens,
       usage.output_tokens,
       runId,
     );
-    run("UPDATE topics SET last_run_at = datetime('now') WHERE id = ?", topic.id);
+    run("UPDATE topics SET last_run_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?", topic.id);
 
     const yeni = added.findings + added.niches + added.lesson;
     logEvent(
@@ -102,7 +102,7 @@ export async function researchTopic(topicId) {
     );
     return { runId, mode, ...added };
   } catch (error) {
-    run("UPDATE runs SET status = 'error', error = ?, finished_at = datetime('now') WHERE id = ?", String(error.message), runId);
+    run("UPDATE runs SET status = 'error', error = ?, finished_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?", String(error.message), runId);
     logEvent('error', `Araştırma başarısız: ${topic.title} — ${error.message}`, { runId });
     throw error;
   }

@@ -1,6 +1,6 @@
 import { api } from '../api';
 import { Panel, Button, Tag, Loading, Empty } from './ui';
-import { useLoader } from '../hooks';
+import { useLoader, yerelZaman } from '../hooks';
 import { useState } from 'react';
 
 export function Dashboard({ onNavigate }) {
@@ -115,7 +115,7 @@ export function Dashboard({ onNavigate }) {
                       <li key={e.id}>
                         <Tag tone={e.type === 'error' ? 'bad' : 'neutral'}>{e.type}</Tag>
                         <span>{e.message}</span>
-                        <time className="muted small">{e.created_at.slice(5, 16)}</time>
+                        <time className="muted small">{yerelZaman(e.created_at)}</time>
                       </li>
                     ))}
                   </ul>
