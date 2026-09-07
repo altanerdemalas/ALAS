@@ -1,16 +1,95 @@
-# React + Vite
+# ALAS — Printify POD Araştırma ve Öğrenme Ajanı
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Printify ile stoksuz (print-on-demand) e-ticaret için yapay zeka destekli bir asistan.
+Sürekli araştırma yapar, öğrendiğini bilgi tabanına yazar, **sana ders olarak anlatır** ve
+araştırmadan çıkan nişleri satılabilir ürün fikirlerine + yayına hazır listing metinlerine çevirir.
 
-Currently, two official plugins are available:
+## Nasıl çalışır
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```
+Araştırma gündemi (konu kuyruğu)
+        │
+        ▼
+Araştırma ajanı ── web araması ──▶  Bulgular (kaynaklı)
+        │                           Ders (Türkçe, uygulanabilir)
+        │                           Niş adayları (skorlu)
+        │                           Yeni sorular ──┐
+        │                                          │ kuyruğun sonuna eklenir
+        │◀─────────────────────────────────────────┘ (kendi kendine öğrenme döngüsü)
+        ▼
+Ürün ajanı ──▶ Tasarım brief'i + görsel prompt'u + Etsy listing metni
+        │
+        ▼
+Koç ajanı  ──▶ "Bugün şunu yap" görev listesi
+```
 
-## React Compiler
+Her araştırma turu **dört şey** üretir: doğrulanabilir bulgu, bir ders, niş adayları ve
+ajanın kendine sorduğu takip soruları. Son madde döngüyü kapatır — gündem kendini büyütür.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Kurulum
 
-## Expanding the ESLint configuration
+```bash
+npm install
+cp .env.example .env      # anahtarları buraya gir (opsiyonel, aşağıya bak)
+npm run dev               # API :3001, panel :5173
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Üretim için: `npm run build && npm start` (tek sunucu, :3001).
+
+### Demo modu
+
+`ANTHROPIC_API_KEY` yoksa program **çalışmayı sürdürür**: elle yazılmış temel POD içeriğiyle
+aynı akışı işletir, panel dolu gelir. Anahtarı ekleyip sunucuyu yeniden başlattığında aynı akış
+canlı web araştırmasıyla, kaynak linkleriyle ve kişiselleştirilmiş derslerle çalışır.
+
+### Anahtarlar
+
+| Değişken | Nereden alınır | Zorunlu mu |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys | Hayır (yoksa demo modu) |
+| `PRINTIFY_API_TOKEN` | printify.com → Account → API | Hayır (yoksa katalog kapalı) |
+| `PRINTIFY_SHOP_ID` | `GET /api/printify/status` yanıtından | Ürün yüklerken |
+
+Profil değişkenleri (`SALES_CHANNELS`, `TARGET_MARKET`, `STARTING_BUDGET`, …) ajanın araştırma
+ve ders üretimini kişiselleştirir — açıklamaları `.env.example` içinde.
+
+## Panel
+
+| Sekme | Ne yapar |
+|---|---|
+| **Panel** | Durum özeti, sıradaki adımlar, araştırmayı elle tetikleme, aktivite akışı |
+| **Araştır** | Araştırma gündemi (konu ekle / duraklat / çalıştır) ve kaynaklı bilgi tabanı |
+| **Öğren** | Dersler: markdown gövde, "bugün yapılacaklar", okundu/uygulandı takibi |
+| **Nişler** | Talep/rekabet/marj skorlarıyla niş adayları, tek tıkla ürün fikri üretme |
+| **Ürünler** | Tasarım brief'i, görsel prompt'u, Etsy başlık/açıklama/etiketleri (kopyalanabilir) |
+| **Ayarlar** | Bağlantı durumu, Printify test butonu, adım adım kurulum |
+
+## Otomasyon
+
+`RESEARCH_CRON` (varsayılan `0 7 * * *`) her sabah birkaç konuyu araştırıp görev planını
+yeniler. Kapatmak için `RESEARCH_CRON=off`.
+
+## Mimari
+
+```
+server/
+  config.js                  .env okuma, profil, bağlantı durumu
+  db.js                      node:sqlite şema + yardımcılar (harici bağımlılık yok)
+  seed.js                    14 konuluk başlangıç müfredatı
+  lib/ai.js                  Anthropic istemcisi (claude-opus-5 + web_search aracı)
+  agents/research.js         konu → bulgu + ders + niş + yeni sorular
+  agents/product.js          niş → ürün konsepti + listing metni
+  agents/coach.js            durum → sıradaki adımlar
+  agents/demo.js             API anahtarı yokken kullanılan temel içerik
+  integrations/printify.js   Printify REST v1 istemcisi
+  routes/api.js              REST uçları
+src/                         React paneli (Vite)
+```
+
+Veritabanı `data/alas.db` (SQLite — Node'un yerleşik `node:sqlite` modülü, derleme gerektirmez).
+
+## Sıradaki adımlar
+
+- Görsel üretim entegrasyonu: prompt → PNG → Printify yükleme, tek tıka indirilebilir.
+- Printify ürün oluşturma ucu (`createProduct`) hazır; panelden tetikleme eklenebilir.
+- Satış verisi geri beslemesi: hangi nişin gerçekten sattığını ajana öğretmek.
