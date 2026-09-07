@@ -6,6 +6,9 @@ export async function fakeServer(handler) {
     // Bağlantıyı canlı tutmuyoruz: havuzdan yeniden kullanılan soketler
     // testler arasında isteklerin askıda kalmasına yol açıyor.
     res.setHeader('Connection', 'close');
+    // Türkçe karakterler parça sınırına denk gelince bozulmasın diye
+    // her parçayı ayrı ayrı metne çevirmiyoruz.
+    req.setEncoding('utf8');
     let body = '';
     req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => handler(req, res, body));

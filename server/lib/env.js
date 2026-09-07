@@ -1,6 +1,11 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
-const ENV_FILE = process.env.ALAS_ENV_FILE || new URL('../../.env', import.meta.url).pathname;
+/**
+ * Ayarların okunduğu ve yazıldığı .env yolu. Tek kaynak olması önemli:
+ * dotenv başka, yazıcı başka dosyaya bakarsa testler gerçek anahtarı
+ * yükleyip ücretli API çağrısı yapabilir.
+ */
+export const ENV_FILE = process.env.ALAS_ENV_FILE || new URL('../../.env', import.meta.url).pathname;
 
 /**
  * .env dosyasındaki bir değeri günceller; diğer satırlar ve yorumlar korunur.

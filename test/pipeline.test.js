@@ -60,8 +60,10 @@ test('aynı konular tekrar araştırılınca kopya üretilmez', async () => {
     (SELECT COUNT(*) FROM findings) AS findings,
     (SELECT COUNT(*) FROM niches) AS niches`);
 
-  for (let i = 0; i < 14; i++) {
-    await research.researchTopic(research.nextTopic().id);
+  // nextTopic kullanmıyoruz: last_run_at saniye hassasiyetinde olduğu için
+  // aynı saniyede biten konular eşitlenir ve döngü tek konuda takılabilir.
+  for (const topic of db.all('SELECT id FROM topics')) {
+    await research.researchTopic(topic.id);
   }
 
   const after = db.get(`SELECT

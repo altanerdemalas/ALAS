@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { ENV_FILE } from './lib/env.js';
+
+dotenv.config({ path: ENV_FILE });
 
 export const config = {
   port: Number(process.env.PORT || 3001),

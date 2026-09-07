@@ -26,8 +26,11 @@ test('token yokken açıklayıcı hata verir, sessizce geçmez', async () => {
   const { listShops } = await import('../server/integrations/printify.js');
   const saved = config.printify.token;
   config.printify.token = '';
-  await assert.rejects(() => listShops(), /PRINTIFY_API_TOKEN tanımlı değil/);
-  config.printify.token = saved;
+  try {
+    await assert.rejects(() => listShops(), /PRINTIFY_API_TOKEN tanımlı değil/);
+  } finally {
+    config.printify.token = saved;
+  }
 });
 
 test('mağaza listesi çekilir ve yetkilendirme başlığı gönderilir', async () => {
