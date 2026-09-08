@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { all, get, run, parseJson, logEvent } from '../db.js';
-import { config, hasAI, hasPrintify } from '../config.js';
+import { config, hasAI, hasPrintify, hasEtsy } from '../config.js';
 import { listTopics, researchTopic, runResearchCycle, nextTopic } from '../agents/research.js';
 import { generateIdeas } from '../agents/product.js';
 import { refreshActions } from '../agents/coach.js';
 import * as printify from '../integrations/printify.js';
+import * as etsy from '../integrations/etsy.js';
+import { measureNiche } from '../agents/measure.js';
+import { calculateMargin, priceForMargin, CHANNEL_FEES, centsToDollars } from '../lib/margin.js';
 import { setEnvValue, maskSecret } from '../lib/env.js';
 import { resetClient } from '../lib/ai.js';
 
@@ -36,6 +39,7 @@ api.get('/status', (req, res) => {
     counts,
     ai: { connected: hasAI(), model: config.anthropic.model, effort: config.anthropic.effort },
     printify: { connected: hasPrintify(), shopId: config.printify.shopId || null },
+    etsy: { connected: hasEtsy() },
     profile: config.profile,
     research: { cron: config.research.cron, next: nextTopic() },
     recentEvents: all('SELECT * FROM events ORDER BY id DESC LIMIT 12'),
@@ -52,12 +56,13 @@ api.get('/settings/keys', (req, res) => {
   res.json({
     anthropic: { set: Boolean(config.anthropic.apiKey), masked: maskSecret(config.anthropic.apiKey) },
     printify: { set: Boolean(config.printify.token), masked: maskSecret(config.printify.token) },
+    etsy: { set: Boolean(config.etsy.apiKey), masked: maskSecret(config.etsy.apiKey) },
     shopId: config.printify.shopId || '',
   });
 });
 
 api.post('/settings/keys', (req, res) => {
-  const { anthropicKey, printifyToken, shopId } = req.body ?? {};
+  const { anthropicKey, printifyToken, etsyKey, shopId } = req.body ?? {};
   const updated = [];
 
   if (typeof anthropicKey === 'string' && anthropicKey.trim()) {
@@ -76,6 +81,13 @@ api.post('/settings/keys', (req, res) => {
     setEnvValue('PRINTIFY_API_TOKEN', token);
     config.printify.token = token;
     updated.push('Printify');
+  }
+
+  if (typeof etsyKey === 'string' && etsyKey.trim()) {
+    const key = etsyKey.trim();
+    setEnvValue('ETSY_API_KEY', key);
+    config.etsy.apiKey = key;
+    updated.push('Etsy');
   }
 
   if (typeof shopId === 'string') {
@@ -144,7 +156,17 @@ api.patch('/lessons/:id', (req, res) => {
 
 // ---------------------------------------------------------------- nişler
 
-api.get('/niches', (req, res) => res.json(all('SELECT * FROM niches ORDER BY score DESC, id DESC')));
+api.get('/niches', (req, res) =>
+  res.json(
+    all('SELECT * FROM niches ORDER BY score DESC, id DESC')
+      .map((n) => ({ ...n, measured: parseJson(n.measured, null) })),
+  ));
+
+// Tahmini rekabet skorunu Etsy'den ölçülen gerçek veriyle değiştirir.
+api.post('/niches/:id/measure', wrap(async (req, res) => {
+  const updated = await measureNiche(Number(req.params.id), { keyword: req.body?.keyword });
+  res.json({ ...updated, measured: typeof updated.measured === 'string' ? parseJson(updated.measured, null) : updated.measured });
+}));
 
 api.patch('/niches/:id', (req, res) => {
   run('UPDATE niches SET status = ? WHERE id = ?', req.body?.status, req.params.id);
@@ -182,6 +204,39 @@ api.patch('/actions/:id', (req, res) => {
   res.json(get('SELECT * FROM actions WHERE id = ?', req.params.id));
 });
 
+// ------------------------------------------------------------ kâr hesabı
+
+api.get('/margin/channels', (req, res) => res.json(CHANNEL_FEES));
+
+api.post('/margin/calc', (req, res) => {
+  const { basePrice, shippingCost, salePrice, shippingCharged, channel, adRate, returnRate, targetMarginPct } = req.body ?? {};
+  if (!(Number(basePrice) > 0)) return res.status(400).json({ error: 'basePrice zorunlu' });
+
+  const input = {
+    basePrice: Number(basePrice),
+    shippingCost: Number(shippingCost) || 0,
+    shippingCharged: Number(shippingCharged) || 0,
+    channel: channel || 'etsy',
+    adRate: Number(adRate) || 0,
+    returnRate: returnRate === undefined ? 0.02 : Number(returnRate),
+  };
+
+  res.json({
+    ...(Number(salePrice) > 0 ? calculateMargin({ ...input, salePrice: Number(salePrice) }) : {}),
+    suggestedPrice: priceForMargin({ ...input, targetMarginPct: Number(targetMarginPct) || 30 }),
+  });
+});
+
+// -------------------------------------------------------------- etsy
+
+api.get('/etsy/status', wrap(async (req, res) => res.json(await etsy.connectionStatus())));
+
+api.get('/etsy/keyword', wrap(async (req, res) => {
+  const keyword = String(req.query.q || '').trim();
+  if (!keyword) return res.status(400).json({ error: 'q parametresi zorunlu' });
+  res.json(await etsy.keywordStats(keyword));
+}));
+
 // -------------------------------------------------------------- printify
 
 api.get('/printify/status', wrap(async (req, res) => res.json(await printify.connectionStatus())));
@@ -194,7 +249,16 @@ api.get('/printify/blueprints', wrap(async (req, res) => {
 api.get('/printify/blueprints/:id/providers', wrap(async (req, res) =>
   res.json(await printify.listPrintProviders(req.params.id))));
 
-api.get('/printify/blueprints/:id/providers/:providerId/variants', wrap(async (req, res) =>
-  res.json(await printify.listVariants(req.params.id, req.params.providerId))));
+api.get('/printify/blueprints/:id/providers/:providerId/variants', wrap(async (req, res) => {
+  const data = await printify.listVariants(req.params.id, req.params.providerId);
+  // Printify sent cinsinden döner; panelde dolar göstermek için çeviriyoruz.
+  const variants = (data.variants ?? []).map((v) => ({
+    id: v.id,
+    title: v.title,
+    options: v.options,
+    basePrice: centsToDollars(v.price ?? v.cost),
+  }));
+  res.json({ ...data, variants });
+}));
 
 api.get('/printify/products', wrap(async (req, res) => res.json(await printify.listProducts())));

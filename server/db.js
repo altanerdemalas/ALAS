@@ -78,6 +78,9 @@ CREATE TABLE IF NOT EXISTS niches (
   seasonality TEXT,
   score REAL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'fikir',     -- fikir | test | aktif | elendi
+  -- Ölçülmüş veriler ve kaynakları (JSON). Boşsa skorlar model tahminidir.
+  measured TEXT,
+  measured_at TEXT,
   run_id INTEGER REFERENCES runs(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -124,6 +127,11 @@ CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id);
 CREATE INDEX IF NOT EXISTS idx_lessons_status ON lessons(status);
 CREATE INDEX IF NOT EXISTS idx_ideas_niche ON product_ideas(niche_id);
 `);
+
+// Eski veritabanlarına ölçüm sütunlarını ekle (SQLite'ta IF NOT EXISTS yok).
+const nicheSutunlari = db.prepare('PRAGMA table_info(niches)').all().map((c) => c.name);
+if (!nicheSutunlari.includes('measured')) db.exec('ALTER TABLE niches ADD COLUMN measured TEXT');
+if (!nicheSutunlari.includes('measured_at')) db.exec('ALTER TABLE niches ADD COLUMN measured_at TEXT');
 
 // Eski sürümler zaman damgasını saat dilimi işareti olmadan yazıyordu; tarayıcı
 // bunu yerel saat sanıp saatleri kaydırıyordu. Değerler zaten UTC, işaretliyoruz.

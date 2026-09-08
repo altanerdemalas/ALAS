@@ -41,6 +41,7 @@ export function Settings() {
 function KeyForm({ status, keys }) {
   const [anthropicKey, setAnthropicKey] = useState('');
   const [printifyToken, setPrintifyToken] = useState('');
+  const [etsyKey, setEtsyKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -49,9 +50,10 @@ function KeyForm({ status, keys }) {
     setBusy(true);
     setResult(null);
     try {
-      const { updated } = await api.saveKeys({ anthropicKey, printifyToken });
+      const { updated } = await api.saveKeys({ anthropicKey, printifyToken, etsyKey });
       setAnthropicKey('');
       setPrintifyToken('');
+      setEtsyKey('');
       setResult({ ok: true, text: `Kaydedildi: ${updated.join(', ')}. Artık canlı çalışıyor.` });
       await Promise.all([status.reload(), keys.reload()]);
     } catch (error) {
@@ -62,7 +64,7 @@ function KeyForm({ status, keys }) {
   };
 
   const k = keys.data;
-  const nothingTyped = !anthropicKey.trim() && !printifyToken.trim();
+  const nothingTyped = !anthropicKey.trim() && !printifyToken.trim() && !etsyKey.trim();
 
   return (
     <Panel
@@ -101,6 +103,23 @@ function KeyForm({ status, keys }) {
                 placeholder={k.printify.set ? 'Değiştirmek için yeni token\'ı yapıştır' : 'Printify Personal Access Token'}
                 value={printifyToken}
                 onChange={(e) => setPrintifyToken(e.target.value)}
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </label>
+
+            <label className="key-row">
+              <div className="row gap">
+                <span className="field-label">Etsy — rekabet ölçümü</span>
+                <Tag tone={k.etsy?.set ? 'good' : 'neutral'}>
+                  {k.etsy?.set ? `bağlı · ${k.etsy.masked}` : 'bağlı değil (rekabet tahmine kalır)'}
+                </Tag>
+              </div>
+              <input
+                type="password"
+                placeholder={k.etsy?.set ? 'Değiştirmek için yeni anahtarı yapıştır' : 'Etsy API keystring'}
+                value={etsyKey}
+                onChange={(e) => setEtsyKey(e.target.value)}
                 autoComplete="off"
                 spellCheck="false"
               />
@@ -195,6 +214,16 @@ Anahtar bir kez gösterilir; kaybedersen yenisini oluşturman gerekir.
 **Maliyet:** Abonelik değil, kullandıkça ödersin. Bir araştırma turu kabaca birkaç sent
 ile ~30 sent arası. Günde iki tur çalışan bir kurulum ayda yaklaşık $5-15 tutar.
 Yavaşlatmak istersen Panel'deki otomatik turu kapatabilirsin.
+
+### Etsy anahtarı (rekabeti ölçmek için)
+
+1. \`etsy.com/developers\` → **Register a new app**.
+2. Uygulama bilgilerini doldur; onay genelde 24-48 saat (satıcı hesabıyla dakikalar).
+3. Gelen **keystring**'i yukarıdaki kutuya yapıştır.
+
+Bu anahtar olmadan rekabet skorları model tahmini kalır. Anahtarla birlikte
+Nişler sekmesinde "Rekabeti ölç" düğmesi gerçek listing sayısını, fiyat
+dağılımını ve favori sayılarını çeker.
 
 ### Printify token'ı (isteğe bağlı)
 

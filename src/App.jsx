@@ -4,6 +4,7 @@ import { Research } from './components/Research';
 import { Lessons } from './components/Lessons';
 import { Niches } from './components/Niches';
 import { Ideas } from './components/Ideas';
+import { Margin } from './components/Margin';
 import { Settings } from './components/Settings';
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   { id: 'ogren', label: 'Öğren' },
   { id: 'nisler', label: 'Nişler' },
   { id: 'urunler', label: 'Ürünler' },
+  { id: 'kar', label: 'Kâr hesabı' },
   { id: 'ayarlar', label: 'Ayarlar' },
 ];
 
@@ -47,6 +49,7 @@ export default function App() {
         {tab === 'ogren' && <Lessons />}
         {tab === 'nisler' && <Niches onNavigate={setTab} />}
         {tab === 'urunler' && <Ideas />}
+        {tab === 'kar' && <Margin />}
         {tab === 'ayarlar' && <Settings />}
       </main>
     </div>

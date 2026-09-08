@@ -25,6 +25,7 @@ export const api = {
   niches: () => request('/niches'),
   setNicheStatus: (id, status) => request(`/niches/${id}`, { method: 'PATCH', body: { status } }),
   generateIdeas: (id, count) => request(`/niches/${id}/ideas`, { method: 'POST', body: { count } }),
+  measureNiche: (id, keyword) => request(`/niches/${id}/measure`, { method: 'POST', body: { keyword } }),
 
   ideas: () => request('/ideas'),
   setIdeaStatus: (id, status) => request(`/ideas/${id}`, { method: 'PATCH', body: { status } }),
@@ -36,6 +37,14 @@ export const api = {
   keys: () => request('/settings/keys'),
   saveKeys: (body) => request('/settings/keys', { method: 'POST', body }),
 
+  etsyStatus: () => request('/etsy/status'),
+  keywordStats: (q) => request(`/etsy/keyword?q=${encodeURIComponent(q)}`),
+
+  channels: () => request('/margin/channels'),
+  calcMargin: (body) => request('/margin/calc', { method: 'POST', body }),
+
   printifyStatus: () => request('/printify/status'),
+  blueprintProviders: (id) => request(`/printify/blueprints/${id}/providers`),
+  variants: (id, providerId) => request(`/printify/blueprints/${id}/providers/${providerId}/variants`),
   blueprints: () => request('/printify/blueprints'),
 };

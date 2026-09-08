@@ -21,6 +21,11 @@ export const config = {
     baseUrl: process.env.PRINTIFY_BASE_URL || 'https://api.printify.com/v1',
   },
 
+  etsy: {
+    apiKey: process.env.ETSY_API_KEY || '',
+    baseUrl: process.env.ETSY_BASE_URL || 'https://openapi.etsy.com/v3',
+  },
+
   // Kullanıcı profili: ajan araştırmayı ve dersleri buna göre kişiselleştirir.
   profile: {
     channels: (process.env.SALES_CHANNELS || 'etsy,shopify,printify_popup').split(',').map((s) => s.trim()),
@@ -39,3 +44,4 @@ export const config = {
 
 export const hasAI = () => Boolean(config.anthropic.apiKey);
 export const hasPrintify = () => Boolean(config.printify.token);
+export const hasEtsy = () => Boolean(config.etsy.apiKey);

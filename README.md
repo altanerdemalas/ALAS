@@ -68,6 +68,7 @@ canlı web araştırmasıyla, kaynak linkleriyle ve kişiselleştirilmiş dersle
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys | Hayır (yoksa demo modu) |
 | `PRINTIFY_API_TOKEN` | printify.com → Account → API | Hayır (yoksa katalog kapalı) |
 | `PRINTIFY_SHOP_ID` | `GET /api/printify/status` yanıtından | Ürün yüklerken |
+| `ETSY_API_KEY` | etsy.com/developers → Register a new app | Hayır (yoksa rekabet tahmini kalır) |
 
 Profil değişkenleri (`SALES_CHANNELS`, `TARGET_MARKET`, `STARTING_BUDGET`, …) ajanın araştırma
 ve ders üretimini kişiselleştirir — açıklamaları `.env.example` içinde.
@@ -79,9 +80,23 @@ ve ders üretimini kişiselleştirir — açıklamaları `.env.example` içinde.
 | **Panel** | Durum özeti, sıradaki adımlar, araştırmayı elle tetikleme, aktivite akışı |
 | **Araştır** | Araştırma gündemi (konu ekle / duraklat / çalıştır) ve kaynaklı bilgi tabanı |
 | **Öğren** | Dersler: markdown gövde, "bugün yapılacaklar", okundu/uygulandı takibi |
-| **Nişler** | Talep/rekabet/marj skorlarıyla niş adayları, tek tıkla ürün fikri üretme |
+| **Nişler** | Niş adayları; her skor "ölçüm" ya da "tahmin" olarak işaretli, Etsy ile rekabet ölçümü |
+| **Kâr hesabı** | Printify baz maliyeti + kanal komisyonları → kalem kalem kâr, başabaş ve önerilen fiyat |
 | **Ürünler** | Tasarım brief'i, görsel prompt'u, Etsy başlık/açıklama/etiketleri (kopyalanabilir) |
 | **Ayarlar** | Bağlantı durumu, Printify test butonu, adım adım kurulum |
+
+## Ölçüm mü, tahmin mi?
+
+Panel bu ikisini asla karıştırmaz — her sayının yanında hangisi olduğu yazar.
+
+| Skor | Kaynak |
+|---|---|
+| **Marj** | **Ölçüm.** Printify kataloğundan gerçek baz maliyet + kaynağı belli komisyon oranları. Kâr hesabı sekmesi kalem kalem gösterir. |
+| **Rekabet** | Etsy anahtarı varsa **ölçüm** (aktif listing sayısı, fiyat dağılımı, favoriler); yoksa model tahmini. |
+| **Talep** | **Tahmin.** Google Trends'in resmi API'si başvuruyla kapalı alfa aşamasında; ücretli servis bağlanmadıkça bu skor model yargısıdır. |
+
+Komisyon oranları `server/lib/margin.js` içinde kaynak ve doğrulama tarihiyle tutulur;
+panelde de gösterilir, böylece hangi varsayımla hesaplandığı gizli kalmaz.
 
 ## Otomasyon
 
