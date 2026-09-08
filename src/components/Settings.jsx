@@ -15,6 +15,8 @@ export function Settings() {
         {status.data && <PrintifyPanel status={status.data} onSaved={() => { status.reload(); keys.reload(); }} />}
       </Loading>
 
+      <Butce onSaved={() => status.reload()} />
+
       <Panel title="Nasıl API anahtarı alınır?">
         <Markdown text={SETUP} />
       </Panel>
@@ -137,6 +139,48 @@ function KeyForm({ status, keys }) {
           </form>
         )}
       </Loading>
+    </Panel>
+  );
+}
+
+/** Aylık harcama sınırı — otomatik turları durdurur, elle çalıştırmayı değil. */
+function Butce({ onSaved }) {
+  const usage = useLoader(api.usage);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const kaydet = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await api.saveKeys({ monthlyBudget: Number(value) || 0 });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      await Promise.all([usage.reload(), onSaved()]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const mevcut = usage.data?.budget?.limit ?? 0;
+
+  return (
+    <Panel title="Aylık harcama sınırı" subtitle="Otomatik araştırma turları bu tutarı aşınca durur">
+      <form className="row gap" onSubmit={kaydet}>
+        <input
+          type="number" min="0" step="1" style={{ width: 120 }}
+          placeholder={mevcut ? `$${mevcut}` : 'sınırsız'}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <Button type="submit" busy={busy}>Kaydet</Button>
+        {saved && <span className="muted small">✓ kaydedildi</span>}
+      </form>
+      <p className="muted small">
+        {mevcut ? `Şu anki sınır: $${mevcut}/ay.` : 'Şu an sınır yok.'} 0 yazarsan sınır kalkar.
+        Sınır aşıldığında <strong>elle</strong> çalıştırma engellenmez — karar sende kalsın diye.
+      </p>
     </Panel>
   );
 }

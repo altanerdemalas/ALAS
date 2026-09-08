@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS runs (
   error TEXT,
   input_tokens INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0,
+  web_searches INTEGER DEFAULT 0,
   started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   finished_at TEXT
 );
@@ -127,6 +128,9 @@ CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id);
 CREATE INDEX IF NOT EXISTS idx_lessons_status ON lessons(status);
 CREATE INDEX IF NOT EXISTS idx_ideas_niche ON product_ideas(niche_id);
 `);
+
+const runSutunlari = db.prepare('PRAGMA table_info(runs)').all().map((c) => c.name);
+if (!runSutunlari.includes('web_searches')) db.exec('ALTER TABLE runs ADD COLUMN web_searches INTEGER DEFAULT 0');
 
 // Eski veritabanlarına ölçüm sütunlarını ekle (SQLite'ta IF NOT EXISTS yok).
 const nicheSutunlari = db.prepare('PRAGMA table_info(niches)').all().map((c) => c.name);

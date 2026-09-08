@@ -243,3 +243,10 @@ input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--accent) 
 .hesap .toplam td { font-weight: 600; font-size: 1.05rem; border-bottom: 0; padding-top: .6rem; }
 .hesap .kar { color: var(--good); }
 .oneri { margin-top: .8rem; padding: .6rem .8rem; border-radius: var(--radius); background: var(--surface-2); }
+
+/* -------------------------------------------------------------- harcama */
+
+.harcama { display: flex; flex-direction: column; gap: .2rem; margin-bottom: .7rem; }
+.harcama .stat-value { margin-right: .5rem; }
+.butce { margin: .6rem 0; }
+.butce .bar-track { display: block; height: 6px; margin-bottom: .35rem; }

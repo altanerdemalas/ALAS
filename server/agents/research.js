@@ -85,9 +85,10 @@ export async function researchTopic(topicId) {
 
     run(
       `UPDATE runs SET status = 'done', finished_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-       input_tokens = ?, output_tokens = ? WHERE id = ?`,
+       input_tokens = ?, output_tokens = ?, web_searches = ? WHERE id = ?`,
       usage.input_tokens,
       usage.output_tokens,
+      usage.web_searches ?? 0,
       runId,
     );
     run("UPDATE topics SET last_run_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?", topic.id);
@@ -165,7 +166,7 @@ function persist(runId, data, sources) {
 /** Demo modunu askJson ile aynı şekle sokar: { data, sources, usage }. */
 function demoRun(topic) {
   const { sources, ...data } = demoResearch(topic);
-  return { data, sources, usage: { input_tokens: 0, output_tokens: 0 } };
+  return { data, sources, usage: { input_tokens: 0, output_tokens: 0, web_searches: 0 } };
 }
 
 const clamp = (v) => Math.max(0, Math.min(10, Number(v) || 0));

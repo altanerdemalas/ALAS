@@ -51,6 +51,11 @@ export async function askJson(system, prompt, { webSearch = false, maxUses = 8 }
     usage: {
       input_tokens: message.usage?.input_tokens ?? 0,
       output_tokens: message.usage?.output_tokens ?? 0,
+      // Web arama ayrı ücretlendirilir. API kendi sayacını veriyorsa onu
+      // kullan; vermiyorsa dönen sonuç bloklarını say.
+      web_searches:
+        message.usage?.server_tool_use?.web_search_requests
+        ?? message.content.filter((b) => b.type === 'web_search_tool_result').length,
     },
   };
 }

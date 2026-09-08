@@ -7,6 +7,8 @@ import { seedTopics } from './seed.js';
 import { api } from './routes/api.js';
 import { runResearchCycle } from './agents/research.js';
 import { refreshActions } from './agents/coach.js';
+import { autoRunsBlocked } from './lib/usage.js';
+import { get } from './db.js';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -20,16 +22,36 @@ if (existsSync('./dist')) {
 
 seedTopics();
 
+/** Otomatik tur: bütçe aşıldıysa hiç başlamaz. */
+async function otomatikTur(sebep) {
+  if (autoRunsBlocked()) {
+    logEvent('cron', `Otomatik tur atlandı (aylık bütçe aşıldı) — ${sebep}`);
+    return;
+  }
+  logEvent('cron', `Otomatik araştırma turu başladı — ${sebep}`);
+  try {
+    await runResearchCycle();
+    await refreshActions();
+  } catch (error) {
+    logEvent('error', `Otomatik tur hatası: ${error.message}`);
+  }
+}
+
 if (config.research.cron !== 'off') {
-  cron.schedule(config.research.cron, async () => {
-    logEvent('cron', 'Zamanlanmış araştırma turu başladı');
-    try {
-      await runResearchCycle();
-      await refreshActions();
-    } catch (error) {
-      logEvent('error', `Zamanlanmış tur hatası: ${error.message}`);
-    }
-  });
+  cron.schedule(config.research.cron, () => otomatikTur('zamanlanmış'));
+
+  // Cron yalnızca sunucu o anda açıksa tetiklenir; ALAS ise kullanıcı
+  // uygulamayı açtığında başlar. Bu yüzden Mac kapalıyken gelen turlar
+  // sessizce kaybolurdu. Açılışta gecikmiş tur varsa telafi ediyoruz.
+  const sonTur = get("SELECT started_at FROM runs WHERE status = 'done' ORDER BY id DESC LIMIT 1");
+  const gecenSaat = sonTur
+    ? (Date.now() - new Date(sonTur.started_at).getTime()) / 3_600_000
+    : Infinity;
+
+  if (gecenSaat >= config.research.catchUpHours) {
+    // Sunucunun ayağa kalkmasını engellemesin diye kısa gecikmeyle başlat.
+    setTimeout(() => otomatikTur(sonTur ? 'kaçırılan tur telafisi' : 'ilk tur'), 3000);
+  }
 }
 
 // Yalnızca bu bilgisayardan erişilebilsin: panel API anahtarı yazabildiği için

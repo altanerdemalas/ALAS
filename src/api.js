@@ -11,6 +11,7 @@ const request = async (path, options = {}) => {
 
 export const api = {
   status: () => request('/status'),
+  usage: () => request('/usage'),
 
   topics: () => request('/topics'),
   addTopic: (body) => request('/topics', { method: 'POST', body }),

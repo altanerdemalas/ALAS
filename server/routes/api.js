@@ -9,6 +9,7 @@ import * as etsy from '../integrations/etsy.js';
 import { measureNiche } from '../agents/measure.js';
 import { calculateMargin, priceForMargin, CHANNEL_FEES, centsToDollars } from '../lib/margin.js';
 import { setEnvValue, maskSecret } from '../lib/env.js';
+import { usageSummary } from '../lib/usage.js';
 import { resetClient } from '../lib/ai.js';
 
 export const api = Router();
@@ -45,6 +46,10 @@ api.get('/status', (req, res) => {
     recentEvents: all('SELECT * FROM events ORDER BY id DESC LIMIT 12'),
   });
 });
+
+// ---------------------------------------------------------------- harcama
+
+api.get('/usage', (req, res) => res.json(usageSummary()));
 
 // ------------------------------------------------------------- anahtarlar
 
@@ -88,6 +93,13 @@ api.post('/settings/keys', (req, res) => {
     setEnvValue('ETSY_API_KEY', key);
     config.etsy.apiKey = key;
     updated.push('Etsy');
+  }
+
+  if (req.body?.monthlyBudget !== undefined) {
+    const budget = Math.max(0, Number(req.body.monthlyBudget) || 0);
+    setEnvValue('MONTHLY_BUDGET_USD', String(budget));
+    config.research.monthlyBudget = budget;
+    updated.push('aylık bütçe');
   }
 
   if (typeof shopId === 'string') {

@@ -39,6 +39,11 @@ export const config = {
     // Cron: her gün 07:00 (sunucu saati). Kapatmak için RESEARCH_CRON=off
     cron: process.env.RESEARCH_CRON || '0 7 * * *',
     topicsPerRun: Number(process.env.TOPICS_PER_RUN || 2),
+    // Bu tutar aşılırsa otomatik turlar durur (0 = sınırsız). Elle
+    // çalıştırma engellenmez, panel yalnızca uyarır — karar sende kalsın.
+    monthlyBudget: Number(process.env.MONTHLY_BUDGET_USD || 0),
+    // ALAS açıldığında son tur bu saatten eskiyse kaçırılan tur telafi edilir.
+    catchUpHours: Number(process.env.CATCHUP_HOURS || 20),
   },
 };
 

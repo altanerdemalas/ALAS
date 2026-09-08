@@ -69,6 +69,7 @@ canlı web araştırmasıyla, kaynak linkleriyle ve kişiselleştirilmiş dersle
 | `PRINTIFY_API_TOKEN` | printify.com → Account → API | Hayır (yoksa katalog kapalı) |
 | `PRINTIFY_SHOP_ID` | `GET /api/printify/status` yanıtından | Ürün yüklerken |
 | `ETSY_API_KEY` | etsy.com/developers → Register a new app | Hayır (yoksa rekabet tahmini kalır) |
+| `MONTHLY_BUDGET_USD` | Panel → Ayarlar | Hayır (0 = sınırsız) |
 
 Profil değişkenleri (`SALES_CHANNELS`, `TARGET_MARKET`, `STARTING_BUDGET`, …) ajanın araştırma
 ve ders üretimini kişiselleştirir — açıklamaları `.env.example` içinde.
@@ -77,7 +78,7 @@ ve ders üretimini kişiselleştirir — açıklamaları `.env.example` içinde.
 
 | Sekme | Ne yapar |
 |---|---|
-| **Panel** | Durum özeti, sıradaki adımlar, araştırmayı elle tetikleme, aktivite akışı |
+| **Panel** | Durum özeti, sıradaki adımlar, API harcaması, araştırmayı elle tetikleme, aktivite akışı |
 | **Araştır** | Araştırma gündemi (konu ekle / duraklat / çalıştır) ve kaynaklı bilgi tabanı |
 | **Öğren** | Dersler: markdown gövde, "bugün yapılacaklar", okundu/uygulandı takibi |
 | **Nişler** | Niş adayları; her skor "ölçüm" ya da "tahmin" olarak işaretli, Etsy ile rekabet ölçümü |
@@ -98,10 +99,18 @@ Panel bu ikisini asla karıştırmaz — her sayının yanında hangisi olduğu 
 Komisyon oranları `server/lib/margin.js` içinde kaynak ve doğrulama tarihiyle tutulur;
 panelde de gösterilir, böylece hangi varsayımla hesaplandığı gizli kalmaz.
 
-## Otomasyon
+## Otomasyon ve maliyet
 
 `RESEARCH_CRON` (varsayılan `0 7 * * *`) her sabah birkaç konuyu araştırıp görev planını
 yeniler. Kapatmak için `RESEARCH_CRON=off`.
+
+Cron yalnızca sunucu o anda açıkken tetiklenir; ALAS ise uygulama açıldığında başlar.
+Bu yüzden açılışta **kaçırılan tur telafi edilir**: son tur `CATCHUP_HOURS`'dan (varsayılan 20)
+eskiyse bir tur hemen çalışır.
+
+Panel her turun token ve web arama sayısını kaydeder, aylık tahmini harcamayı gösterir.
+`MONTHLY_BUDGET_USD` tanımlıysa sınır aşıldığında **otomatik** turlar durur; elle çalıştırma
+engellenmez. Fiyatlar `server/lib/cost.js` içinde kaynak ve doğrulama tarihiyle tutulur.
 
 ## Mimari
 

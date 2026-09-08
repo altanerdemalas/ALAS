@@ -6,13 +6,14 @@ import { useState } from 'react';
 export function Dashboard({ onNavigate }) {
   const status = useLoader(api.status);
   const actions = useLoader(api.actions);
+  const usage = useLoader(api.usage);
   const [busy, setBusy] = useState('');
 
   const runResearch = async () => {
     setBusy('research');
     try {
       await api.research();
-      await Promise.all([status.reload(), actions.reload()]);
+      await Promise.all([status.reload(), actions.reload(), usage.reload()]);
     } finally {
       setBusy('');
     }
@@ -106,6 +107,8 @@ export function Dashboard({ onNavigate }) {
                 )}
               </Panel>
 
+              <Harcama usage={usage} />
+
               <Panel title="Son hareketler">
                 {s.recentEvents.length === 0 ? (
                   <Empty>Henüz hareket yok.</Empty>
@@ -126,6 +129,54 @@ export function Dashboard({ onNavigate }) {
         </>
       )}
     </Loading>
+  );
+}
+
+/** API harcaması: veri zaten kayıtlıydı, görünür olması gerekiyordu. */
+function Harcama({ usage }) {
+  const u = usage.data;
+  if (!u) return null;
+
+  const b = u.budget;
+  return (
+    <Panel title="API harcaması" subtitle="Anthropic — tahmini, kesin tutar konsoldaki faturadır">
+      {u.month.runs === 0 ? (
+        <Empty>Bu ay ücretli araştırma yapılmadı.</Empty>
+      ) : (
+        <>
+          <div className="harcama">
+            <div>
+              <span className="stat-value">${u.month.cost.toFixed(2)}</span>
+              <span className="muted small">bu ay · {u.month.runs} tur</span>
+            </div>
+            <div className="muted small">
+              tur başına ~${u.month.averagePerRun.toFixed(3)} · {u.month.searches} web araması
+            </div>
+          </div>
+
+          {b && (
+            <div className="butce">
+              <div className="bar-track">
+                <span
+                  className={`bar-fill ${b.exceeded ? 'bad' : b.usedPct > 75 ? '' : 'good'}`}
+                  style={{ width: `${b.usedPct}%` }}
+                />
+              </div>
+              <p className="muted small">
+                {b.exceeded
+                  ? `Aylık sınır ($${b.limit}) aşıldı — otomatik turlar durdu. Elle çalıştırma açık.`
+                  : `Aylık sınır: $${b.limit} · kalan $${b.remaining.toFixed(2)}`}
+              </p>
+            </div>
+          )}
+
+          <p className="muted small">
+            Toplam: ${u.allTime.cost.toFixed(2)} ({u.allTime.runs} tur) ·
+            fiyatlar {u.pricing.verifiedAt} doğrulaması
+          </p>
+        </>
+      )}
+    </Panel>
   );
 }
 
