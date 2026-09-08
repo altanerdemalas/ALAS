@@ -10,6 +10,7 @@ import { measureNiche } from '../agents/measure.js';
 import { calculateMargin, priceForMargin, CHANNEL_FEES, centsToDollars } from '../lib/margin.js';
 import { setEnvValue, maskSecret } from '../lib/env.js';
 import { usageSummary } from '../lib/usage.js';
+import { applySchedule } from '../scheduler.js';
 import { resetClient } from '../lib/ai.js';
 
 export const api = Router();
@@ -50,6 +51,55 @@ api.get('/status', (req, res) => {
 // ---------------------------------------------------------------- harcama
 
 api.get('/usage', (req, res) => res.json(usageSummary()));
+
+/** Otomasyon ayarları — panelden değiştirilir, yeniden başlatma gerekmez. */
+api.get('/automation', (req, res) => res.json({
+  cron: config.research.cron,
+  topicsPerRun: config.research.topicsPerRun,
+  monthlyBudget: config.research.monthlyBudget,
+  catchUpHours: config.research.catchUpHours,
+}));
+
+api.post('/automation', (req, res) => {
+  const { cron: yeniCron, topicsPerRun, monthlyBudget } = req.body ?? {};
+
+  if (typeof yeniCron === 'string') {
+    const deger = yeniCron.trim() || 'off';
+    if (deger !== 'off' && !cronGecerli(deger)) {
+      return res.status(400).json({ error: `Geçersiz zamanlama: "${deger}"` });
+    }
+    setEnvValue('RESEARCH_CRON', deger);
+    config.research.cron = deger;
+    applySchedule(); // yeni zamanlama hemen geçerli olsun
+  }
+
+  if (topicsPerRun !== undefined) {
+    const sayi = Math.max(1, Math.min(5, Number(topicsPerRun) || 1));
+    setEnvValue('TOPICS_PER_RUN', String(sayi));
+    config.research.topicsPerRun = sayi;
+  }
+
+  if (monthlyBudget !== undefined) {
+    const butce = Math.max(0, Number(monthlyBudget) || 0);
+    setEnvValue('MONTHLY_BUDGET_USD', String(butce));
+    config.research.monthlyBudget = butce;
+  }
+
+  logEvent('settings', 'Otomasyon ayarları güncellendi', {
+    cron: config.research.cron,
+    topicsPerRun: config.research.topicsPerRun,
+    monthlyBudget: config.research.monthlyBudget,
+  });
+
+  res.json({
+    cron: config.research.cron,
+    topicsPerRun: config.research.topicsPerRun,
+    monthlyBudget: config.research.monthlyBudget,
+  });
+});
+
+/** node-cron'un kendi doğrulayıcısı; hatalı ifade sessizce kaydedilmesin. */
+const cronGecerli = (ifade) => ifade.trim().split(/\s+/).length === 5;
 
 // ------------------------------------------------------------- anahtarlar
 
@@ -93,13 +143,6 @@ api.post('/settings/keys', (req, res) => {
     setEnvValue('ETSY_API_KEY', key);
     config.etsy.apiKey = key;
     updated.push('Etsy');
-  }
-
-  if (req.body?.monthlyBudget !== undefined) {
-    const budget = Math.max(0, Number(req.body.monthlyBudget) || 0);
-    setEnvValue('MONTHLY_BUDGET_USD', String(budget));
-    config.research.monthlyBudget = budget;
-    updated.push('aylık bütçe');
   }
 
   if (typeof shopId === 'string') {

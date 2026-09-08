@@ -36,12 +36,15 @@ export const config = {
   },
 
   research: {
-    // Cron: her gün 07:00 (sunucu saati). Kapatmak için RESEARCH_CRON=off
-    cron: process.env.RESEARCH_CRON || '0 7 * * *',
-    topicsPerRun: Number(process.env.TOPICS_PER_RUN || 2),
+    // Varsayılan KAPALI: otomatik tur ayda ~$40 tutabiliyor. Kullanıcı
+    // maliyeti panelde görüp bilinçli olarak açsın diye elle başlıyoruz.
+    cron: process.env.RESEARCH_CRON || 'off',
+    topicsPerRun: Number(process.env.TOPICS_PER_RUN || 1),
     // Bu tutar aşılırsa otomatik turlar durur (0 = sınırsız). Elle
     // çalıştırma engellenmez, panel yalnızca uyarır — karar sende kalsın.
-    monthlyBudget: Number(process.env.MONTHLY_BUDGET_USD || 0),
+    monthlyBudget: process.env.MONTHLY_BUDGET_USD === undefined
+      ? 10
+      : Number(process.env.MONTHLY_BUDGET_USD) || 0,
     // ALAS açıldığında son tur bu saatten eskiyse kaçırılan tur telafi edilir.
     catchUpHours: Number(process.env.CATCHUP_HOURS || 20),
   },

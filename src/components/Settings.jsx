@@ -15,7 +15,7 @@ export function Settings() {
         {status.data && <PrintifyPanel status={status.data} onSaved={() => { status.reload(); keys.reload(); }} />}
       </Loading>
 
-      <Butce onSaved={() => status.reload()} />
+      <Otomasyon onSaved={() => status.reload()} />
 
       <Panel title="Nasıl API anahtarı alınır?">
         <Markdown text={SETUP} />
@@ -143,44 +143,91 @@ function KeyForm({ status, keys }) {
   );
 }
 
-/** Aylık harcama sınırı — otomatik turları durdurur, elle çalıştırmayı değil. */
-function Butce({ onSaved }) {
-  const usage = useLoader(api.usage);
-  const [value, setValue] = useState('');
+/**
+ * Otomasyon ve bütçe. Varsayılanlar bilerek güvenli tarafta: otomatik tur
+ * kapalı, tur başına 1 konu, aylık $10 sınır. Buradan değiştirilebilir.
+ */
+const ZAMANLAMALAR = [
+  { value: 'off', label: 'Kapalı — sadece elle çalıştır', not: 'Önerilen başlangıç. Maliyet tamamen senin kontrolünde.' },
+  { value: '0 7 * * 1', label: 'Haftada bir (Pazartesi 07:00)', not: 'Tur başına ~$0.70 → ayda ~$3' },
+  { value: '0 7 * * *', label: 'Her gün (07:00)', not: 'Tur başına ~$0.70 → ayda ~$20 (1 konu ile)' },
+];
+
+function Otomasyon({ onSaved }) {
+  const automation = useLoader(api.automation);
+  const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const a = automation.data;
+  const degerler = form ?? (a && { cron: a.cron, topicsPerRun: a.topicsPerRun, monthlyBudget: a.monthlyBudget });
 
   const kaydet = async (event) => {
     event.preventDefault();
     setBusy(true);
+    setResult(null);
     try {
-      await api.saveKeys({ monthlyBudget: Number(value) || 0 });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      await Promise.all([usage.reload(), onSaved()]);
+      await api.saveAutomation(degerler);
+      setResult({ ok: true, text: 'Kaydedildi — hemen geçerli.' });
+      setForm(null);
+      await Promise.all([automation.reload(), onSaved()]);
+    } catch (error) {
+      setResult({ ok: false, text: error.message });
     } finally {
       setBusy(false);
     }
   };
 
-  const mevcut = usage.data?.budget?.limit ?? 0;
+  const secili = ZAMANLAMALAR.find((z) => z.value === degerler?.cron);
 
   return (
-    <Panel title="Aylık harcama sınırı" subtitle="Otomatik araştırma turları bu tutarı aşınca durur">
-      <form className="row gap" onSubmit={kaydet}>
-        <input
-          type="number" min="0" step="1" style={{ width: 120 }}
-          placeholder={mevcut ? `$${mevcut}` : 'sınırsız'}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-        <Button type="submit" busy={busy}>Kaydet</Button>
-        {saved && <span className="muted small">✓ kaydedildi</span>}
-      </form>
-      <p className="muted small">
-        {mevcut ? `Şu anki sınır: $${mevcut}/ay.` : 'Şu an sınır yok.'} 0 yazarsan sınır kalkar.
-        Sınır aşıldığında <strong>elle</strong> çalıştırma engellenmez — karar sende kalsın diye.
-      </p>
+    <Panel title="Otomasyon ve bütçe" subtitle="Araştırma ne sıklıkla çalışsın, ne kadar harcasın">
+      <Loading {...automation}>
+        {degerler && (
+          <form className="key-form" onSubmit={kaydet}>
+            <label className="key-row">
+              <span className="field-label">Otomatik araştırma</span>
+              <select value={degerler.cron} onChange={(e) => setForm({ ...degerler, cron: e.target.value })}>
+                {ZAMANLAMALAR.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
+                {!secili && <option value={degerler.cron}>Özel: {degerler.cron}</option>}
+              </select>
+              {secili && <span className="muted small">{secili.not}</span>}
+            </label>
+
+            <div className="margin-grid">
+              <label className="field-block">
+                <span className="field-label">Tur başına konu</span>
+                <input
+                  type="number" min="1" max="5"
+                  value={degerler.topicsPerRun}
+                  onChange={(e) => setForm({ ...degerler, topicsPerRun: Number(e.target.value) })}
+                />
+                <span className="muted small">Her konu ayrı ücretlendirilir</span>
+              </label>
+
+              <label className="field-block">
+                <span className="field-label">Aylık sınır ($)</span>
+                <input
+                  type="number" min="0" step="1"
+                  value={degerler.monthlyBudget}
+                  onChange={(e) => setForm({ ...degerler, monthlyBudget: Number(e.target.value) })}
+                />
+                <span className="muted small">0 = sınırsız</span>
+              </label>
+            </div>
+
+            <div className="row gap">
+              <Button type="submit" busy={busy}>Kaydet</Button>
+              {result && <span className={result.ok ? 'muted small' : 'error'}>{result.ok ? '✓ ' : '⚠ '}{result.text}</span>}
+            </div>
+
+            <p className="muted small">
+              Sınır aşıldığında <strong>otomatik</strong> turlar durur; elle "Şimdi araştır"
+              çalışmaya devam eder — karar sende kalsın diye.
+            </p>
+          </form>
+        )}
+      </Loading>
     </Panel>
   );
 }

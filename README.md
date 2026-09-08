@@ -101,16 +101,26 @@ panelde de gösterilir, böylece hangi varsayımla hesaplandığı gizli kalmaz.
 
 ## Otomasyon ve maliyet
 
-`RESEARCH_CRON` (varsayılan `0 7 * * *`) her sabah birkaç konuyu araştırıp görev planını
-yeniler. Kapatmak için `RESEARCH_CRON=off`.
+Ölçülen maliyet: bir araştırma turu **~$0.70** (token + web arama ücreti). Bu yüzden
+varsayılanlar bilerek güvenli tarafta:
+
+| Ayar | Varsayılan | Neden |
+|---|---|---|
+| `RESEARCH_CRON` | `off` | Günlük otomatik tur ayda ~$20-40 tutar. Önce elle çalıştır, maliyeti gör, sonra aç. |
+| `TOPICS_PER_RUN` | `1` | Her konu ayrı ücretlendirilir. |
+| `MONTHLY_BUDGET_USD` | `10` | Aşılınca **otomatik** turlar durur; elle çalıştırma engellenmez. |
+
+Üçü de **Ayarlar → Otomasyon ve bütçe** bölümünden değiştirilir; değişiklik yeniden
+başlatmadan geçerli olur. Erken sürümden gelen kurulumlar açılışta bir kez bu ayarlara
+çekilir — ama kendi seçtiğin bir değer varsa ona dokunulmaz ve değişiklik aktivite
+akışında bildirilir.
 
 Cron yalnızca sunucu o anda açıkken tetiklenir; ALAS ise uygulama açıldığında başlar.
 Bu yüzden açılışta **kaçırılan tur telafi edilir**: son tur `CATCHUP_HOURS`'dan (varsayılan 20)
 eskiyse bir tur hemen çalışır.
 
 Panel her turun token ve web arama sayısını kaydeder, aylık tahmini harcamayı gösterir.
-`MONTHLY_BUDGET_USD` tanımlıysa sınır aşıldığında **otomatik** turlar durur; elle çalıştırma
-engellenmez. Fiyatlar `server/lib/cost.js` içinde kaynak ve doğrulama tarihiyle tutulur.
+Fiyatlar `server/lib/cost.js` içinde kaynak ve doğrulama tarihiyle tutulur.
 
 ## Mimari
 

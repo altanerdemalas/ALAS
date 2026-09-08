@@ -12,6 +12,8 @@ const request = async (path, options = {}) => {
 export const api = {
   status: () => request('/status'),
   usage: () => request('/usage'),
+  automation: () => request('/automation'),
+  saveAutomation: (body) => request('/automation', { method: 'POST', body }),
 
   topics: () => request('/topics'),
   addTopic: (body) => request('/topics', { method: 'POST', body }),
