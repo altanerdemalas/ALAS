@@ -8,6 +8,7 @@ import * as printify from '../integrations/printify.js';
 import * as etsy from '../integrations/etsy.js';
 import { measureNiche } from '../agents/measure.js';
 import { calculateMargin, priceForMargin, CHANNEL_FEES, centsToDollars } from '../lib/margin.js';
+import { checkTrademark, checkListingQuality, checkDemand, checkPrice, summarizeChecks } from '../lib/preflight.js';
 import { setEnvValue, maskSecret } from '../lib/env.js';
 import { usageSummary } from '../lib/usage.js';
 import { applySchedule } from '../scheduler.js';
@@ -242,6 +243,75 @@ api.get('/ideas', (req, res) =>
       LEFT JOIN niches n ON n.id = p.niche_id ORDER BY p.id DESC
     `).map((i) => ({ ...i, tags: parseJson(i.tags) })),
   ));
+
+/**
+ * Yayın öncesi kontrol. Etsy anahtarı varsa talep ve fiyat da ölçülür;
+ * yoksa o kontroller "atlandı" olarak işaretlenir — sessizce geçmiş sayılmaz.
+ */
+api.post('/ideas/:id/preflight', wrap(async (req, res) => {
+  const idea = get('SELECT * FROM product_ideas WHERE id = ?', req.params.id);
+  if (!idea) return res.status(404).json({ error: 'Ürün fikri bulunamadı' });
+
+  const tags = parseJson(idea.tags);
+  const price = Number(req.body?.price) || 0;
+  const keyword = (req.body?.keyword || tags[0] || idea.title).trim();
+
+  let stats = null;
+  let etsyHatasi = null;
+  if (hasEtsy()) {
+    try {
+      stats = await etsy.keywordStats(keyword);
+    } catch (error) {
+      etsyHatasi = error.message;
+    }
+  }
+
+  const checks = [
+    checkTrademark({ listingTitle: idea.listing_title, listingDescription: idea.listing_description, tags }),
+    checkListingQuality({ listingTitle: idea.listing_title, listingDescription: idea.listing_description, tags }),
+    checkDemand(stats),
+    checkPrice(stats, price),
+  ];
+
+  res.json({ ...summarizeChecks(checks), keyword, etsyHatasi });
+}));
+
+/**
+ * Tasarım dosyasını Printify'a yükleyip ürün fikrinden taslak ürün oluşturur.
+ * Tasarımı sen üretiyorsun; burada yapılan sadece kurulum işi.
+ */
+api.post('/ideas/:id/publish', wrap(async (req, res) => {
+  const idea = get('SELECT * FROM product_ideas WHERE id = ?', req.params.id);
+  if (!idea) return res.status(404).json({ error: 'Ürün fikri bulunamadı' });
+
+  const { fileName, imageBase64, blueprintId, printProviderId, variants, position } = req.body ?? {};
+  if (!imageBase64) return res.status(400).json({ error: 'Tasarım dosyası gerekli' });
+  if (!blueprintId || !printProviderId) return res.status(400).json({ error: 'Ürün tipi ve üretici seçilmeli' });
+  if (!Array.isArray(variants) || variants.length === 0) return res.status(400).json({ error: 'En az bir varyant seçilmeli' });
+
+  const upload = await printify.uploadImage(fileName || `alas-${idea.id}.png`, imageBase64);
+
+  const payload = printify.buildProductPayload({
+    title: idea.listing_title || idea.title,
+    description: idea.listing_description || '',
+    blueprintId,
+    printProviderId,
+    variants,
+    imageId: upload.id,
+    position,
+  });
+
+  const product = await printify.createProduct(payload);
+
+  run(
+    "UPDATE product_ideas SET status = 'yuklendi', printify_product_id = ? WHERE id = ?",
+    String(product.id),
+    idea.id,
+  );
+  logEvent('product', `Printify'a taslak ürün oluşturuldu: ${idea.title}`, { ideaId: idea.id, productId: product.id });
+
+  res.json({ productId: product.id, imageId: upload.id, preview: upload.preview_url });
+}));
 
 api.patch('/ideas/:id', (req, res) => {
   run('UPDATE product_ideas SET status = ? WHERE id = ?', req.body?.status, req.params.id);

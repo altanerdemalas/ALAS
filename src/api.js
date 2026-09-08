@@ -32,6 +32,8 @@ export const api = {
 
   ideas: () => request('/ideas'),
   setIdeaStatus: (id, status) => request(`/ideas/${id}`, { method: 'PATCH', body: { status } }),
+  preflight: (id, body) => request(`/ideas/${id}/preflight`, { method: 'POST', body }),
+  publishIdea: (id, body) => request(`/ideas/${id}/publish`, { method: 'POST', body }),
 
   actions: () => request('/actions'),
   refreshActions: () => request('/actions/refresh', { method: 'POST' }),

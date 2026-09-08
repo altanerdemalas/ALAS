@@ -52,6 +52,44 @@ export const listProducts = (shopId = config.printify.shopId) =>
 export const createProduct = (payload, shopId = config.printify.shopId) =>
   request(`/shops/${shopId}/products.json`, { method: 'POST', body: payload });
 
+/**
+ * Tasarım dosyasını Printify'ın medya kütüphanesine yükler.
+ * Dönen `id`, ürün oluştururken baskı alanına yerleştirilecek görseli işaret eder.
+ */
+export const uploadImage = (fileName, base64Contents) =>
+  request('/uploads/images.json', { method: 'POST', body: { file_name: fileName, contents: base64Contents } });
+
+/**
+ * Ürün fikrinden Printify taslağı üretir.
+ * Ürün taslak olarak oluşur; yayına almadan önce Printify'da önizleyebilirsin.
+ */
+export function buildProductPayload({ title, description, blueprintId, printProviderId, variants, imageId, position = 'front' }) {
+  const variantIds = variants.map((v) => v.id);
+  return {
+    title,
+    description,
+    blueprint_id: Number(blueprintId),
+    print_provider_id: Number(printProviderId),
+    variants: variants.map((v) => ({
+      id: v.id,
+      // Printify fiyatları sent cinsinden bekler.
+      price: Math.round(Number(v.price) * 100),
+      is_enabled: true,
+    })),
+    print_areas: [
+      {
+        variant_ids: variantIds,
+        placeholders: [
+          {
+            position,
+            images: [{ id: imageId, x: 0.5, y: 0.5, scale: 1, angle: 0 }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 /** Bağlantı durumu — panelin Ayarlar sekmesi bunu gösterir. */
 export async function connectionStatus() {
   if (!hasPrintify()) return { connected: false, reason: 'Token yok' };

@@ -7,7 +7,9 @@ import { applySchedule, catchUpIfDue } from './scheduler.js';
 import { applyDefaultsOnce } from './lib/defaults.js';
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+// Tasarım dosyaları base64 olarak geldiği için gövde limiti yüksek tutuluyor
+// (baskıya hazır PNG'ler büyük olur; base64 ayrıca ~%33 şişirir).
+app.use(express.json({ limit: '32mb' }));
 app.use('/api', api);
 
 // Production'da Vite çıktısını da bu sunucu servis eder.

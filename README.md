@@ -83,7 +83,7 @@ ve ders üretimini kişiselleştirir — açıklamaları `.env.example` içinde.
 | **Öğren** | Dersler: markdown gövde, "bugün yapılacaklar", okundu/uygulandı takibi |
 | **Nişler** | Niş adayları; her skor "ölçüm" ya da "tahmin" olarak işaretli, Etsy ile rekabet ölçümü |
 | **Kâr hesabı** | Printify baz maliyeti + kanal komisyonları → kalem kalem kâr, başabaş ve önerilen fiyat |
-| **Ürünler** | Tasarım brief'i, görsel prompt'u, Etsy başlık/açıklama/etiketleri (kopyalanabilir) |
+| **Ürünler** | Tasarım brief'i, görsel prompt'u, listing metni; yayın öncesi kontrol ve Printify'a taslak ürün gönderme |
 | **Ayarlar** | Bağlantı durumu, Printify test butonu, adım adım kurulum |
 
 ## Ölçüm mü, tahmin mi?
@@ -141,8 +141,20 @@ src/                         React paneli (Vite)
 
 Veritabanı `data/alas.db` (SQLite — Node'un yerleşik `node:sqlite` modülü, derleme gerektirmez).
 
+## Yayın akışı
+
+Ürünler sekmesinde her fikir için:
+
+1. **Yayın öncesi kontrol** — telif/marka riski, listing kalitesi (başlık uzunluğu, 13 etiket),
+   ve Etsy anahtarı varsa arama hacmi + fiyatın piyasa aralığındaki konumu. Etsy yoksa o
+   kontroller "atlandı" der; sessizce "sorun yok" saymaz.
+2. **Printify'a gönder** — baskıya hazır PNG'yi yükler, ürün tipi/üretici/varyant seçtirir
+   ve **taslak** ürün oluşturur. Tasarımı sen üretirsin; burada yapılan kurulum işidir.
+
+Telif kontrolü bilinen riskli terimleri yakalar, **tescil sorgusu değildir**.
+
 ## Sıradaki adımlar
 
-- Görsel üretim entegrasyonu: prompt → PNG → Printify yükleme, tek tıka indirilebilir.
-- Printify ürün oluşturma ucu (`createProduct`) hazır; panelden tetikleme eklenebilir.
-- Satış verisi geri beslemesi: hangi nişin gerçekten sattığını ajana öğretmek.
+- Satış verisi geri beslemesi: hangi nişin gerçekten sattığını ajana öğretmek. Bu, gerçek
+  satış olmadan anlamsız — ilk ürün yayına çıkıp veri birikince yapılacak.
+- Görsel üretim entegrasyonu (prompt → PNG), ayrı bir görsel API'si ve ücreti gerektirir.

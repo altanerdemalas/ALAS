@@ -250,3 +250,15 @@ input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--accent) 
 .harcama .stat-value { margin-right: .5rem; }
 .butce { margin: .6rem 0; }
 .butce .bar-track { display: block; height: 6px; margin-bottom: .35rem; }
+
+/* -------------------------------------------------- kontrol / yayınlama */
+
+.kontrol { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.kontrol li { display: flex; gap: .5rem; align-items: flex-start; }
+.kontrol li p { margin: .1rem 0 0; }
+
+.yayin { display: flex; flex-direction: column; gap: .7rem; margin-top: .6rem; }
+.yayin input[type=file] { padding: .3rem; }
+.varyantlar { display: flex; flex-direction: column; gap: .2rem; max-height: 190px; overflow-y: auto; padding: .4rem; border: 1px solid var(--border); border-radius: 7px; }
+.varyant { display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
+.varyant em { margin-left: auto; font-style: normal; }
